@@ -63,3 +63,6 @@
 - **Our launcher copy** (`src/compose_apptainer.py`) mounts every bind under the alpasim tree read-only and refuses to create anything there. The wizard runs with `-B alpasim:ro`; all outputs, caches and `defines.filesystem` live under alpasim-jepa.
 - **Baseline for pairing:** alpasim v0.3 nuPlan bench run `local_nuplan_a15_bench_12991555`. 100 scenes, 82 passed, mean scene score **0.759**; at-fault collision 0.03, offroad 0.06, left corridor 0.11, progress 0.85, dist-to-gt 1.80 m; 1000 Drive calls, mean 0.41 s.
 - **Jobs:** GPU memory/latency check (L40S), then the 100-scene closed loop on the same scene list (dependency afterok).
+- **GPU check** (job 12994593, L40S, driver 550.54): WA-JEPA per plan **0.202 s** at batch 1 (p90 0.203); 0.408 s at batch 2 (no batching gain). nvidia-smi process memory **6,114 MiB** (peak reserved 5.47 GiB).
+  - Compare Alpamayo v0.3: 0.83 s / ~14.5-15 GB. So there's >10 GB headroom under the 16 GiB cap.
+  - Sample plan matches the CPU run to within a few cm (bf16 autocast vs fp32).
