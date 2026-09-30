@@ -27,7 +27,7 @@ import grpc
 
 from .batch_worker import BatchPolicy, BatchWorker
 from .navigation import DriveCommand, command_from_route, command_one_hot
-from .policy import InferenceInput, Prediction, WaJepaPolicy
+from .policy import ConstVelPolicy, InferenceInput, Prediction, WaJepaPolicy
 from .preprocessing import CAMERA_IDS, NUM_HISTORY, build_ego_status, relative_se2, resize_frame
 from .trajectory import (
     CachedPlan,
@@ -749,8 +749,14 @@ def main() -> None:
     max_batch_size = int(os.environ.get("WAJEPA_MAX_BATCH_SIZE", "2"))
     batch_window_s = float(os.environ.get("WAJEPA_BATCH_WINDOW_MS", "2")) / 1000.0
 
+    def load_policy():
+        if os.environ.get("WAJEPA_ABLATE") == "constvel":   # diagnostic floor, no model
+            LOGGER.info("WA-JEPA warm-up done (ablation constvel: no model loaded)")
+            return ConstVelPolicy()
+        return WaJepaPolicy(repo_root, config_path, checkpoint_path, device=device)
+
     policy_handle = PolicyHandle(
-        loader=lambda: WaJepaPolicy(repo_root, config_path, checkpoint_path, device=device),
+        loader=load_policy,
         max_batch_size=max_batch_size,
         batch_window_s=batch_window_s,
     )

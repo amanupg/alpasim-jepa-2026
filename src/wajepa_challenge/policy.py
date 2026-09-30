@@ -8,6 +8,7 @@ casting weights to bf16 does NOT reproduce their numbers). Output: [8, 3] (x, y,
 from __future__ import annotations
 
 import logging
+import math
 import os
 import sys
 import time
@@ -41,9 +42,27 @@ class Prediction:
     trajectory: np.ndarray
 
 
+class ConstVelPolicy:
+    """Diagnostic floor (WAJEPA_ABLATE=constvel): keep the current velocity for 4 s, no model."""
+
+    def predict_batch(self, requests: list[InferenceInput]) -> list[Prediction]:
+        out = []
+        for r in requests:
+            vx, vy = float(r.ego_status[4]), float(r.ego_status[5])
+            t = 0.5 * np.arange(1, 9)
+            yaw = np.full(8, math.atan2(vy, vx) if math.hypot(vx, vy) > 0.5 else 0.0)
+            out.append(Prediction(trajectory=np.stack([vx * t, vy * t, yaw], 1)))
+        return out
+
+
 class WaJepaPolicy:
     def __init__(self, repo_root: str, config_path: str, checkpoint_path: str,
                  device: str = "cuda", warm_up: bool = True) -> None:
+        # diagnostics only, off by default: WAJEPA_ABLATE=blank_cameras feeds mid-grey images;
+        # WAJEPA_DUMP_DIR saves the first history frame set of every 25th call as .npz
+        self.ablate = os.environ.get("WAJEPA_ABLATE", "")
+        self.dump_dir = os.environ.get("WAJEPA_DUMP_DIR", "")
+        self.n_calls = 0
         from omegaconf import OmegaConf
 
         t0 = time.time()
@@ -91,6 +110,18 @@ class WaJepaPolicy:
     def predict_batch(self, requests: list[InferenceInput]) -> list[Prediction]:
         if not requests:
             return []
+        if self.dump_dir and self.n_calls % 25 == 0:
+            os.makedirs(self.dump_dir, exist_ok=True)
+            r = requests[0]
+            np.savez_compressed(os.path.join(self.dump_dir, f"call{self.n_calls:05d}.npz"),
+                                ego_status=r.ego_status, history_trajectory=r.history_trajectory,
+                                **{f"t{i}_{c}": f[c] for i, f in enumerate(r.history) for c in CAMERA_IDS})
+        self.n_calls += 1
+        if self.ablate == "blank_cameras":
+            grey = np.full((INPUT_H, INPUT_W, 3), 128, np.uint8)
+            requests = [InferenceInput(history=[{c: grey for c in CAMERA_IDS}] * NUM_HISTORY,
+                                       history_trajectory=r.history_trajectory, ego_status=r.ego_status)
+                        for r in requests]
         feats = {
             "history_images": torch.stack([frames_to_tensor(r.history) for r in requests]).to(self.device),
             "ego_status": torch.from_numpy(np.stack([r.ego_status for r in requests])).to(self.device),
