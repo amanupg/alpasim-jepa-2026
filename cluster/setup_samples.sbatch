@@ -27,4 +27,6 @@ rm -rf $B/envs/overlay_samples
 $HOME/.local/bin/uv pip install -q --python $NR/ext/a15env/bin/python --target $B/envs/overlay_samples --no-deps \
   timm==1.0.27 dataclasses-json==0.6.7 marshmallow typing-inspect mypy-extensions opencv-python-headless==4.12.0.88
 PYTHONNOUSERSITE=1 PYTHONPATH=$B/envs/overlay_samples $NR/ext/a15env/bin/python -c "import timm, cv2, dataclasses_json; print('timm', timm.__version__, 'cv2', cv2.__version__)"
+curl -sSfL -o $W/navsim_16384.npy https://media.githubusercontent.com/media/NVlabs/alpasim/2023534/e2e_challenge/sample_submission_simscale_navsim_gtrs_dense/assets/gtrs_dense/navsim_16384.npy  # git-lfs object (the checkout holds a pointer)
+echo "e8c29cfc25add59ae8b64769a4554c6518878726178c0bd889fc8518ebe1261d  $W/navsim_16384.npy" | sha256sum -c -
 ls -la $W

@@ -61,7 +61,7 @@ elif [ $DRIVER = ltf ] || [ $DRIVER = diffusiondrive ] || [ $DRIVER = gtrs ]; th
                 DIFFUSIONDRIVE_MAX_BATCH_SIZE=1 DIFFUSIONDRIVE_BATCH_WINDOW_MS=2 ;;
     gtrs) PKG=navsim_gtrs_dense_challenge; DIR=$E2E/sample_submission_simscale_navsim_gtrs_dense
          export GTRS_CHECKPOINT_PATH=$W/gtrs_dense_resnet_sim_reward_navhard.ckpt GTRS_BACKBONE=resnet \
-                GTRS_VOCAB_PATH=$DIR/assets/gtrs_dense/navsim_16384.npy GTRS_SERVICE_VERSION=simscale-gtrs-dense-e2e \
+                GTRS_VOCAB_PATH=$W/navsim_16384.npy GTRS_SERVICE_VERSION=simscale-gtrs-dense-e2e \
                 GTRS_DEVICE=cuda GTRS_SPEED_ENHANCEMENT=1 GTRS_MAX_BATCH_SIZE=1 GTRS_BATCH_WINDOW_MS=2 ;;
   esac
   env PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 OMP_NUM_THREADS=1 TORCH_NUM_THREADS=1 \
