@@ -30,8 +30,9 @@ RUN pip install --no-deps /tmp/alpasim_grpc && rm -rf /tmp/alpasim_grpc \
 COPY container/assets/wa_jepa_code /app/wa_jepa
 COPY container/assets/wa_jepa/model_state_dict.pt /app/assets/wa_jepa/model_state_dict.pt
 
-# 4) our code (last: cheap to re-push)
+# 4) our code and the licence notice the challenge terms require (section 5), last: cheap to re-push
 COPY src/wajepa_challenge /app/wajepa_challenge
+COPY container/LICENSE container/NOTICE /app/
 RUN groupadd --gid 10001 alpasim \
     && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp/home --shell /usr/sbin/nologin alpasim \
     && chmod -R a+rX /app

@@ -197,3 +197,12 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Driver health:** 40 plans per scene, 0 fallbacks, 0 errors, 6,280 MiB. The adapter works; the model doesn't transfer.
 - **Oracle best of Alpamayo + WA-JEPA:** 0.762 (+0.094; +0.131 with both views). WA-JEPA is better on 6 of 40 scenes. A selector would have to spot those few scenes against a much weaker second driver, so this is a low-priority idea for the main line's chooser, not a plan.
 - **Conclusion:** as predicted, zero-shot WA-JEPA is far below Alpamayo on PAI. The track split stands: PAI stays on the Alpamayo line, and nuPlan moves to WA-JEPA.
+
+## 2026-09-30 Terms text read (official-2026-08, sha256 8166fed2…; Aman ran `terms show`)
+- **§3:** "The nuPlan track restricts teams to use any publicly available data to develop their policies". WA-JEPA and its training data are public. The same section says "participants are responsible for complying with any applicable terms of datasets used".
+- **§5:** submissions must be under Apache-2.0 **with the licence notice included**. (b) The contestant represents that third-party components are Apache-2.0-compatible "and have been properly identified".
+  - WA-JEPA code and weights are Apache-2.0, V-JEPA 2 is MIT (+Apache), and the NVIDIA adapter and alpasim_grpc are Apache-2.0: all compatible.
+  - **Gap found and fixed:** the dev image had no top-level licence/notice. Added `container/LICENSE` (Apache-2.0 text) and `container/NOTICE` (every third-party component with source, revision and licence), copied to `/app/`. The next build carries them.
+- **§8(c)/§13:** no third-party IP infringement. Removal is possible on a third-party IP claim.
+  - The residual grey area is nuPlan's CC BY-NC-SA licence versus the commercial rights §5 grants NVIDIA over weights trained on it. It is shared by the organisers' own Apache-2.0 SimScale samples (nuPlan-trained) and every NAVSIM-based team. We cannot resolve it; the only remedy named is removal/disqualification of the Submission.
+- **§2:** eligibility (age, jurisdiction, not an NVIDIA employee or family): Aman's to confirm; nothing here is JEPA-specific.

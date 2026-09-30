@@ -1,0 +1,40 @@
+AlpaSim E2E Challenge 2026, nuPlan track submission (team amanupg): WA-JEPA driver
+Copyright 2026 team amanupg (AlpaSim E2E Challenge 2026)
+
+This submission is made available under the Apache License, Version 2.0 (see /app/LICENSE),
+as required by the challenge terms (official-2026-08, section 5).
+
+Third-party components incorporated in this image (all compatible with Apache-2.0):
+
+1. WA-JEPA code: models/, training/, utils/, configs/ (in /app/wa_jepa)
+   AFARI-Research / WA-JEPA, commit bec2966, https://github.com/AFARI-Research/WA-JEPA
+   License: Apache-2.0 (/app/wa_jepa/LICENSE)
+
+2. WA-JEPA model weights: /app/assets/wa_jepa/model_state_dict.pt
+   Hugging Face AFARI-Research/WA-JEPA, revision 15c0770e,
+   sha256 e1d3be013de7dbaa5a6c30925a0d2f91e6ce1a6b17a75ca73fe01a1abe6d6408
+   License: Apache-2.0 (model card). Trained by its authors on public NAVSIM / nuPlan data.
+
+3. V-JEPA 2 code vendored by WA-JEPA: /app/wa_jepa/third_party/vjepa2
+   Meta Platforms, Inc., https://github.com/facebookresearch/vjepa2
+   License: MIT (/app/wa_jepa/third_party/vjepa2/LICENSE), with parts under Apache-2.0
+   (/app/wa_jepa/third_party/vjepa2/APACHE-LICENSE)
+
+4. AlpaSim NAVSIM sample adapter: driver.py, batch_worker.py, navigation.py, trajectory.py
+   (in /app/wajepa_challenge; driver.py modified), from NVlabs/alpasim branch e2e_challenge,
+   commit 2023534, e2e_challenge/sample_submission_simscale_navsim_transfuser
+   Copyright (c) 2026 NVIDIA Corporation. License: Apache-2.0. Details: /app/wajepa_challenge/NOTICE.md
+
+5. alpasim_grpc 0.54.0 (installed Python package), NVlabs/alpasim src/grpc @ 2023534
+   Copyright (c) 2026 NVIDIA Corporation. License: Apache-2.0
+
+6. Python packages installed from PyPI / download.pytorch.org, each under its own permissive
+   license: torch 2.8.0 and torchvision 0.23.0 (BSD-3-Clause; bundled NVIDIA CUDA runtime
+   libraries under NVIDIA's redistributable terms), numpy (BSD-3-Clause), timm 0.9.16
+   (Apache-2.0), omegaconf (BSD-3-Clause), einops (MIT), opencv-python-headless 4.12
+   (Apache-2.0 / MIT), pillow (MIT-CMU), tqdm (MPL-2.0 / MIT), huggingface-hub (Apache-2.0),
+   safetensors (Apache-2.0), pyyaml (MIT), grpcio (Apache-2.0), protobuf (BSD-3-Clause).
+   Base image: python:3.12-slim (Debian; packages under their respective licenses).
+
+Our own code in /app/wajepa_challenge (preprocessing.py, policy.py and the driver changes) is
+licensed under Apache-2.0.
