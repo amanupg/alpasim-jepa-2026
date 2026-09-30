@@ -30,7 +30,8 @@ if ss -ltn 2>/dev/null | awk '{print $4}' | grep -qE ":($PORT_BASE|$((PORT_BASE+
 fi
 
 # ---- our own nre-artifacts view of the AlpaSim PAI scene files
-PD=$B/data/pai/nre-artifacts; mkdir -p $PD/scenesets $PD/ego-hoods
+# (the wizard reads both defines.sensordata and scenes.scene_cache as ${defines.filesystem}/nre-artifacts)
+PD=$B/data/fs/nre-artifacts; mkdir -p $PD/scenesets $PD/ego-hoods
 [ -L $PD/all-usdzs ] || ln -s $A/data/fs/nre-artifacts/all-usdzs $PD/all-usdzs
 
 # ---- driver: WA-JEPA, PAI rig mapping
@@ -58,7 +59,7 @@ mkdir -p $B/data/fs $B/cache/hf
   echo "cd $RUN"
   echo "export HF_HOME=$B/cache/hf HF_HUB_OFFLINE=1"
   echo "exec /repo/.venv/bin/alpasim_wizard +e2e_challenge=dev wizard.run_method=NONE wizard.log_dir=$RUN" \
-       "defines.filesystem=$B/data/fs defines.sensordata=$PD defines.hf_cache=$B/cache/hf" \
+       "defines.filesystem=$B/data/fs defines.hf_cache=$B/cache/hf" \
        "hydra.run.dir=$RUN/hydra eval.video.render_video=${VIDEO:-false} wizard.baseport=$PORT_BASE" \
        "runtime.endpoints.driver.n_concurrent_rollouts=$ROLLOUTS $SEL"
 } > $RUN/wizard.sh
