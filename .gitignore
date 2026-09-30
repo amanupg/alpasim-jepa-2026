@@ -4,3 +4,5 @@ weights/
 data/
 runs/
 .venv/
+ext/
+container/assets/

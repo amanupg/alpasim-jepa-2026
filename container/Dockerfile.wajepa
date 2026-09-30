@@ -1,0 +1,45 @@
+# AlpaSim E2E challenge, nuPlan track driver: WA-JEPA (V-JEPA 2.1 ViT-L world-action model, 788M params,
+# fp32 weights under bf16 autocast) behind the organisers' NAVSIM adapter (src/wajepa_challenge).
+# Build context = alpasim-jepa/. Inputs staged by container/prepare.sh.
+#   docker buildx build --platform linux/amd64 --load -f container/Dockerfile.wajepa -t <tag> .
+# Versions match the environment the driver was validated in on Insomnia (LEDGER.md):
+# python 3.12, torch 2.8.0 cu128, timm 0.9.16, omegaconf 2.3.1, opencv 4.12.0.88, grpc 1.84.0.
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    HOME=/tmp/home TMPDIR=/tmp XDG_CACHE_HOME=/tmp/.cache TORCH_HOME=/tmp/torch HF_HOME=/tmp/huggingface \
+    TORCH_EXTENSIONS_DIR=/tmp/torch_extensions MPLCONFIGDIR=/tmp/matplotlib CUDA_CACHE_PATH=/tmp/nv \
+    NUMBA_CACHE_DIR=/tmp/numba ALPASIM_DRIVER_LOG_DIR=/run/alpasim-driver HF_HUB_OFFLINE=1 \
+    OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 \
+    TORCH_NUM_THREADS=1 TORCH_NUM_INTEROP_THREADS=1
+
+# 1) runtime: torch wheels bundle the CUDA libraries; only the host driver is needed
+RUN pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/cu128
+
+# 2) python deps (from the import trace of driver + model build)
+RUN pip install numpy==2.5.3 timm==0.9.16 omegaconf==2.3.1 einops==0.8.2 opencv-python-headless==4.12.0.88 \
+        pillow==12.3.0 tqdm==4.70.1 huggingface-hub==0.36.2 safetensors==0.8.0 pyyaml==6.0.3 \
+        grpcio==1.84.0 protobuf==4.25.9
+COPY container/assets/alpasim_grpc /tmp/alpasim_grpc
+RUN pip install --no-deps /tmp/alpasim_grpc && rm -rf /tmp/alpasim_grpc \
+    && python -c "import alpasim_grpc, torch, timm, cv2, omegaconf, einops, grpc; assert alpasim_grpc.__version__ == (0, 54, 0); assert torch.__version__.startswith('2.8.0'); print('deps ok')"
+
+# 3) model: WA-JEPA code (Apache-2.0, LICENSE kept) and weights (3.2 GB fp32)
+COPY container/assets/wa_jepa_code /app/wa_jepa
+COPY container/assets/wa_jepa/model_state_dict.pt /app/assets/wa_jepa/model_state_dict.pt
+
+# 4) our code (last: cheap to re-push)
+COPY src/wajepa_challenge /app/wajepa_challenge
+RUN groupadd --gid 10001 alpasim \
+    && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /tmp/home --shell /usr/sbin/nologin alpasim \
+    && chmod -R a+rX /app
+WORKDIR /app
+ARG GIT_HASH=unknown
+ENV ALPASIM_DRIVER_HOST=0.0.0.0 ALPASIM_DRIVER_PORT=6789 ALPASIM_DRIVER_GRPC_WORKERS=4 \
+    WAJEPA_REPO=/app/wa_jepa WAJEPA_CONFIG=/app/wa_jepa/configs/wa_jepa_navsim_epdms.yaml \
+    WAJEPA_CHECKPOINT=/app/assets/wa_jepa/model_state_dict.pt WAJEPA_DEVICE=cuda \
+    WAJEPA_MAX_BATCH_SIZE=2 WAJEPA_BATCH_WINDOW_MS=2 WAJEPA_GIT_HASH=$GIT_HASH
+EXPOSE 6789
+STOPSIGNAL SIGTERM
+USER 10001:10001
+CMD ["python", "-m", "wajepa_challenge.driver"]

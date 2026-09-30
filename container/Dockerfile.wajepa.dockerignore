@@ -1,0 +1,6 @@
+**
+!container/assets/alpasim_grpc/**
+!container/assets/wa_jepa_code/**
+!container/assets/wa_jepa/model_state_dict.pt
+!src/wajepa_challenge/**
+**/__pycache__
