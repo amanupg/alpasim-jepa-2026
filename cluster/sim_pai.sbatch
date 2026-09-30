@@ -67,7 +67,9 @@ mkdir -p $B/data/fs $B/cache/hf
 } > $RUN/wizard.sh
 apptainer exec -B $A:$A:ro -B $B $SIF bash $RUN/wizard.sh > $RUN/wizard.log 2>&1 || { tail -40 $RUN/wizard.log; exit 1; }
 apptainer exec -B $B $SIF /repo/.venv/bin/python -c "import yaml,json; json.dump(yaml.safe_load(open('$RUN/docker-compose.yaml')), open('$RUN/docker-compose.json','w'), indent=1)"
-python3 $B/src/compose_apptainer.py $RUN/docker-compose.json --sif-dir $A/sandbox --repo-host $REPO \
+# Slurm sets TMPDIR=/local/slurm-job-N, which the containers cannot see (warp's NVRTC kernel build
+# failed with 'cannot open temporary file'): use /tmp, which apptainer binds
+TMPDIR=/tmp python3 $B/src/compose_apptainer.py $RUN/docker-compose.json --sif-dir $A/sandbox --repo-host $REPO \
   --logdir $RUN/svc-logs --cache-dir $B/cache/containers --extra-bind $A/data/fs/nre-artifacts/all-usdzs
 RC=$?
 echo "runtime exit $RC"
