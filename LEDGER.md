@@ -66,3 +66,26 @@
 - **GPU check** (job 12994593, L40S, driver 550.54): WA-JEPA per plan **0.202 s** at batch 1 (p90 0.203); 0.408 s at batch 2 (no batching gain). nvidia-smi process memory **6,114 MiB** (peak reserved 5.47 GiB).
   - Compare Alpamayo v0.3: 0.83 s / ~14.5-15 GB. So there's >10 GB headroom under the 16 GiB cap.
   - Sample plan matches the CPU run to within a few cm (bf16 autocast vs fp32).
+
+## 2026-09-29 Closed loop: WA-JEPA vs Alpamayo v0.3, same 100 nuPlan scenes (job 12994594, L40S, 22m39s)
+- **Run:** `runs/nuplan_wajepa_v1_12994594`. Scene list copied from `local_nuplan_a15_bench_12991555` (navtest assets), 2 concurrent rollouts as officially. Command rule: the organisers' `command_from_route`, unchanged.
+
+| | Alpamayo v0.3 | WA-JEPA v1 |
+|---|---|---|
+| Mean scene score | 0.759 | **0.958** |
+| Passed | 82 | **96** |
+| At-fault collision | 0.03 | **0.00** |
+| Offroad | 0.06 | 0.03 |
+| Left corridor | 0.11 | 0.01 |
+| Progress | 0.85 | 0.98 |
+| Dist to GT | 1.80 m | 1.01 m |
+| Drive call (mean) | 0.41 s | 0.215 s |
+| Driver GPU memory | ~14.5-15 GB | 5.4 GB |
+
+- **Paired:** +0.198, 90% bootstrap [+0.131, +0.265]; wins 35, losses 2, ties 63. The noise we saw on a same-config rerun was ±0.03 at 40 scenes, so this is far outside it.
+- **Taxonomy** (first failure category): baseline 63% clean pass, 19% low progress, 9% corridor, 6% offroad, 3% collision. WA-JEPA 93% clean pass, 3% low progress, 3% offroad, 1% corridor, 0% collision. 35 scenes change category.
+- **Driver health:** 1000 Drive calls, all `model_inference` (10 per scene); 0 cached, 0 straight fallback, 0 dynamic-state fallback, 0 inference errors. Load 7 s, warm-up peak reserved 4.82 GiB.
+- **Caveats:**
+  - 100 local navtest scenes are not the hidden test set. The baseline scored 0.759 locally, and its official nuPlan PCS was 1296 (rank 19/71).
+  - WA-JEPA's README states the navtest EPDMS eval; training is on navtrain (the NAVSIM protocol), so these scenes should be held out. Not verified from their training config.
+- **Next:** a nuPlan-only image with WA-JEPA, then a nuplan-warmup and an October slot. Needs Aman.
