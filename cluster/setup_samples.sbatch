@@ -21,8 +21,10 @@ get() {  # repo path, expected sha256
 get SimScale_ckpts/LTF/ltf_sim_navtest.ckpt 9c1a17651bb2cd8e2edf006ea45634432c38554a8f44e0714f64d11ea31f2c69
 get SimScale_ckpts/DiffusionDrive/diffusiondrive_sim_navhard.ckpt 8fdbdb3fdfa7b496e7d7a438efbb5c2022377e59cbfd7095270d89623c5d963f
 get SimScale_ckpts/GTRS_Dense/gtrs_dense_resnet_sim_reward_navhard.ckpt 8dad0395332ccd844785cbfc7c9e24cb3f8d8dbf5cb9ca7f8f8dc75478fcf409
+rm -rf $B/envs/overlay_samples
+# opencv 4.12 instead of the samples' 4.9 pin: 4.9 needs numpy 1.x and a15env has numpy 2.5.
 # a15env has no pip: install with uv into a --target overlay, for that interpreter
 $HOME/.local/bin/uv pip install -q --python $NR/ext/a15env/bin/python --target $B/envs/overlay_samples --no-deps \
-  timm==1.0.27 dataclasses-json==0.6.7 marshmallow typing-inspect mypy-extensions opencv-python-headless==4.9.0.80
+  timm==1.0.27 dataclasses-json==0.6.7 marshmallow typing-inspect mypy-extensions opencv-python-headless==4.12.0.88
 PYTHONNOUSERSITE=1 PYTHONPATH=$B/envs/overlay_samples $NR/ext/a15env/bin/python -c "import timm, cv2, dataclasses_json; print('timm', timm.__version__, 'cv2', cv2.__version__)"
 ls -la $W

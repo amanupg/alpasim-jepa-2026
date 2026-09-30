@@ -42,6 +42,13 @@ if [ $DRIVER = a15 ]; then
       PYTHONPATH=$A/envs/overlay_driver:$A/envs/overlay_torchao:$A/src:$SIF/repo/src/grpc \
       $NR/ext/a15env/bin/python -u -m a15_driver.driver > $RUN/driver.log 2>&1 &
   READY="policy ready"
+elif [ $DRIVER = image ]; then
+# ---- driver: the submission image itself (apptainer sandbox of the docker image; its own ENV and code)
+  IMG=${IMG:-$B/sandbox/wajepa-dev}
+  apptainer exec --nv --cleanenv --writable-tmpfs --pwd /app --no-home \
+      --env ALPASIM_DRIVER_HOST=localhost,ALPASIM_DRIVER_PORT=$ALPASIM_DRIVER_PORT \
+      $IMG python -m wajepa_challenge.driver > $RUN/driver.log 2>&1 &
+  READY="warm-up done"
 elif [ $DRIVER = ltf ] || [ $DRIVER = diffusiondrive ] || [ $DRIVER = gtrs ]; then
 # ---- reference drivers: the organisers' SimScale samples, read-only from the upstream checkout, with the
 #      env of their Dockerfiles (torch 2.8 here vs 2.6 in their images)
