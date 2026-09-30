@@ -149,3 +149,22 @@ The organisers ship NAVSIM sample images (checkpoints from `OpenDriveLab/SimScal
   - 9 shard-010 scenes fail for every driver (3 are simulator route-sanity errors).
 - **Official reference:** Alpamayo v0.3 scored 0.827 mean scene score on the official 1000-scene nuPlan set. Local shards bracket it (0.759 and 0.510), so the official mix is between our two shards or easier.
 - **Slots:** all 3 September official slots are used. October gives 3 (deadline 2026-10-31); 2 nuplan-warmups remain in the rolling 30 days (1 used on Sep 27).
+
+## 2026-09-30 Rules check: is a WA-JEPA nuPlan submission allowed? (Aman asked)
+Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a5278, sections 03-05), the contestant guide (`e2e_challenge/README.md` @ 2023534), the GitHub issues (#123, #157, #182, #184, #188, #189, #191) and the model/dataset cards.
+- **Permitted resources:** "Award-eligible nuPlan submissions may use only publicly available datasets, annotations, and model weights."
+  - WA-JEPA weights are public (HF, not gated, Apache-2.0). They were trained on public NAVSIM/nuPlan data, starting from public V-JEPA 2.1.
+  - #184 (organiser): "data derived from public data is considered public", including generated rollouts from the provided nuPlan test split. So fine-tuning on public or derived data would also stay eligible.
+- **Evaluation integrity:** the driver uses only what the RPC delivers at runtime (cameras, ego pose/dynamics, route). There are no hidden identifiers. The nuPlan test set is private (Space; #191: "unpublished anywhere", distribution close to public), so local navtest runs are development only.
+- **Licence:** the terms (#188) require submissions under Apache-2.0 plus a broad licence to NVIDIA; Aman accepted `official-2026-08` on 2026-09-27.
+  - WA-JEPA code is Apache-2.0 and the bundled V-JEPA 2 code is MIT (LICENSE files ship in the image). The weights are Apache-2.0 (HF card). All are compatible.
+  - The organisers' sample code (Apache-2.0) and SimScale checkpoints (Apache-2.0) are compatible too, for the GTRS-scorer idea.
+- **Container contract:**
+  - ≤40 GiB image (ours 5.4 GB);
+  - ≤16 GiB VRAM per replica (5.4 GB measured);
+  - read-only root, /tmp 2 GiB, no network (smoke-tested with `--read-only`, non-root);
+  - evaluation GPU is an H100 (#189). "Target 0.1 s of model work per Drive call" is enforced as a per-track throughput budget, not per call. v0.3 at 0.41 s/call used 1,268 of 3,000 s; WA-JEPA is 0.22 s/call on L40S.
+- **Harmonizer** (Space: enabled for final reruns of top policies): an NRE (PAI renderer) option (`e2e_challenge/ec2.yaml`), so it does not affect the nuPlan/MTGS track.
+- **Server code:** the deployment runs 0bb4c4b. Our local pin 2023534 differs only in the CLI/README (warmup track, allocation message).
+- **Reporting:** award eligibility needs a final valid submission plus a 4-page technical report. The report must credit WA-JEPA (AFARI-Research) and the organisers' adapter as the basis.
+- **Not read:** the terms text itself is private and only shown by the CLI (`alpasim_challenge.py terms show`). Our knowledge of it comes from #188 and Aman's acceptance.
