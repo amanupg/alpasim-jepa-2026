@@ -45,8 +45,9 @@ if [ $DRIVER = a15 ]; then
 elif [ $DRIVER = image ]; then
 # ---- driver: the submission image itself (apptainer sandbox of the docker image; its own ENV and code)
   IMG=${IMG:-$B/sandbox/wajepa-dev}
+  # apptainer overrides the image HOME with the host home (read-only here): restore the image value
   apptainer exec --nv --cleanenv --writable-tmpfs --pwd /app --no-home \
-      --env ALPASIM_DRIVER_HOST=localhost,ALPASIM_DRIVER_PORT=$ALPASIM_DRIVER_PORT \
+      --env HOME=/tmp/home,ALPASIM_DRIVER_HOST=localhost,ALPASIM_DRIVER_PORT=$ALPASIM_DRIVER_PORT \
       $IMG python -m wajepa_challenge.driver > $RUN/driver.log 2>&1 &
   READY="warm-up done"
 elif [ $DRIVER = ltf ] || [ $DRIVER = diffusiondrive ] || [ $DRIVER = gtrs ]; then
