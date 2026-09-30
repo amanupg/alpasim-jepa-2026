@@ -168,3 +168,13 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Server code:** the deployment runs 0bb4c4b. Our local pin 2023534 differs only in the CLI/README (warmup track, allocation message).
 - **Reporting:** award eligibility needs a final valid submission plus a 4-page technical report. The report must credit WA-JEPA (AFARI-Research) and the organisers' adapter as the basis.
 - **Not read:** the terms text itself is private and only shown by the CLI (`alpasim_challenge.py terms show`). Our knowledge of it comes from #188 and Aman's acceptance.
+
+## 2026-09-30 Submission image verified in the local closed loop
+- **Image** `alpasim-jepa/wajepa:dev` (Docker id `sha256:2a5b22e5…`, 5.38 GB, built from commit e134b4c + the opencv fix; container/Dockerfile.wajepa), run as an apptainer sandbox from `docker save` (job 12996546, L40S): **0.958 (96 passed), identical to native WA-JEPA v1 on all 100 shard-001 scenes** (100 ties).
+  - Driver process 5,442 MiB (the first GPU pid, present before the simulator). Load 8 s; warm-up peak reserved 4.82 GiB.
+  - 10 inferences per scene; 0 fallbacks and 0 errors.
+- **Mac smoke test:** `--read-only --tmpfs /tmp --tmpfs /run`, uid 10001: imports and write dirs OK.
+- **Apptainer-only harness issues** (not the image):
+  - apptainer replaces the image HOME with the host home, and `--env HOME` is ignored, so the driver is launched via `env HOME=/tmp/home`;
+  - Slurm's TMPDIR (/local/slurm-job-N) is invisible in containers, so the simulator stack runs with TMPDIR=/tmp.
+- **Before a real submission:** rebuild from a clean commit so `WAJEPA_GIT_HASH` names it (dev build: e134b4c), then push to ECR (Aman).
