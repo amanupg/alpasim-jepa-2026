@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -A edu
-#SBATCH -p short,burst
+#SBATCH -p short   # the r6000 gres name exists on short (burst lists R6000)
 #SBATCH -J aj_pai
 #SBATCH --gres=gpu:r6000:1   # NRE (PAI renderer) needs driver >= 575: Blackwell nodes
 #SBATCH -c 12
