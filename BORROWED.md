@@ -10,3 +10,9 @@
 | v0.3 baseline results (nuPlan 30- and 100-scene runs) | `../alpasim` runs | the comparison baseline |
 
 Nothing in this folder may be written back to the sources above.
+
+## Added 2026-09-29 (validation of the WA-JEPA closed-loop result)
+- **AlpaSim v0.3 Alpamayo driver** (`alpasim/src/a15_driver`) and its weights in the nureasoning HF cache: executed read-only as the paired baseline (`sim_nuplan.sbatch DRIVER=a15`), with the v0.3 image's `A15_INFERENCE_INTERVAL_US=1000000`. Nothing written into either tree (`PYTHONDONTWRITEBYTECODE=1`; the driver's caches go to /tmp).
+- **Organisers' SimScale sample drivers** (LTF, DiffusionDrive, GTRS-Dense ResNet reward) from the upstream checkout `alpasim/external/alpasim/e2e_challenge` @ 2023534: executed read-only as reference drivers. Their checkpoints were downloaded by us from the public `OpenDriveLab/SimScale` dataset into `alpasim-jepa/weights/simscale`, sha256-checked against each sample's `prepare_assets.sh`.
+- **nuPlan-track data:** our own copy of trajdata cache, scene configs and asset shard 010 (public `OpenDriveLab/AlpasimChallenge2026_nuplan_track`) in `alpasim-jepa/data/nuplan_track`, for scenes outside AlpaSim's shard 001.
+- **Container inputs** are fetched from the public sources (not copied from other folders): WA-JEPA @ bec2966 from GitHub, weights from HF @ 15c0770e, `alpasim_grpc` from NVlabs/alpasim @ 2023534.
