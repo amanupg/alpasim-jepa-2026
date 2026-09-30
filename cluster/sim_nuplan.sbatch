@@ -23,7 +23,7 @@ SIF=$A/sandbox/alpasim-base; REPO=$A/external/alpasim
 ROLLOUTS=${ROLLOUTS:-2}; NSCENES=${NSCENES:-100}; DRIVER=${DRIVER:-wajepa}
 NUPLAN_ROOT=${NUPLAN_ROOT:-$A/data/nuplan_track}
 RUN=$B/runs/nuplan_${DRIVER}${TAG:+_$TAG}_$SLURM_JOB_ID; mkdir -p $RUN
-env | grep -E "^WAJEPA_|^A15_" | sort > $RUN/variant.env; echo "NUPLAN_ROOT=$NUPLAN_ROOT" >> $RUN/variant.env
+env | grep -E "^WAJEPA_|^A15_|^LTF_|^DIFFUSIONDRIVE_|^GTRS_" | sort > $RUN/variant.env; echo "NUPLAN_ROOT=$NUPLAN_ROOT" >> $RUN/variant.env
 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
 PORT_BASE=$((20000 + (SLURM_JOB_ID % 4000) * 10))
 export ALPASIM_DRIVER_HOST=localhost ALPASIM_DRIVER_PORT=$((PORT_BASE + 9)) ALPASIM_NUPLAN_ROOT=$NUPLAN_ROOT
@@ -42,6 +42,25 @@ if [ $DRIVER = a15 ]; then
       PYTHONPATH=$A/envs/overlay_driver:$A/envs/overlay_torchao:$A/src:$SIF/repo/src/grpc \
       $NR/ext/a15env/bin/python -u -m a15_driver.driver > $RUN/driver.log 2>&1 &
   READY="policy ready"
+elif [ $DRIVER = ltf ] || [ $DRIVER = diffusiondrive ] || [ $DRIVER = gtrs ]; then
+# ---- reference drivers: the organisers' SimScale samples, read-only from the upstream checkout, with the
+#      env of their Dockerfiles (torch 2.8 here vs 2.6 in their images)
+  E2E=$REPO/e2e_challenge; W=$B/weights/simscale
+  case $DRIVER in
+    ltf) PKG=navsim_transfuser_challenge; DIR=$E2E/sample_submission_simscale_navsim_transfuser
+         export LTF_CHECKPOINT_PATH=$W/ltf_sim_navtest.ckpt LTF_DEVICE=cuda LTF_MAX_BATCH_SIZE=2 LTF_BATCH_WINDOW_MS=2 ;;
+    diffusiondrive) PKG=navsim_diffusiondrive_challenge; DIR=$E2E/sample_submission_simscale_navsim_diffusiondrive
+         export DIFFUSIONDRIVE_CHECKPOINT_PATH=$W/diffusiondrive_sim_navhard.ckpt DIFFUSIONDRIVE_DEVICE=cuda \
+                DIFFUSIONDRIVE_MAX_BATCH_SIZE=1 DIFFUSIONDRIVE_BATCH_WINDOW_MS=2 ;;
+    gtrs) PKG=navsim_gtrs_dense_challenge; DIR=$E2E/sample_submission_simscale_navsim_gtrs_dense
+         export GTRS_CHECKPOINT_PATH=$W/gtrs_dense_resnet_sim_reward_navhard.ckpt GTRS_BACKBONE=resnet \
+                GTRS_VOCAB_PATH=$DIR/assets/gtrs_dense/navsim_16384.npy GTRS_SERVICE_VERSION=simscale-gtrs-dense-e2e \
+                GTRS_DEVICE=cuda GTRS_SPEED_ENHANCEMENT=1 GTRS_MAX_BATCH_SIZE=1 GTRS_BATCH_WINDOW_MS=2 ;;
+  esac
+  env PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 OMP_NUM_THREADS=1 TORCH_NUM_THREADS=1 \
+      PYTHONPATH=$B/envs/overlay_samples:$A/envs/overlay_driver:$DIR \
+      $NR/ext/a15env/bin/python -u -m $PKG.driver > $RUN/driver.log 2>&1 &
+  READY="warm-up completed"
 else
 # ---- driver: WA-JEPA through the organisers' NAVSIM adapter (src/wajepa_challenge)
   export WAJEPA_REPO=$B/ext/WA-JEPA WAJEPA_CONFIG=$B/ext/WA-JEPA/configs/wa_jepa_navsim_epdms.yaml \
@@ -86,5 +105,5 @@ echo "runtime exit $RC"
 python3 $A/src/summarize_run.py $RUN
 [ -n "$SCENES_FROM" ] && python3 $A/src/compare_runs.py $SCENES_FROM $RUN
 echo "driver (pid $DRV) peak GPU memory: $(grep "^$DRV," $RUN/gpu_mem.log | sort -t, -k2 -n | tail -1)"
-grep "model_inference\|closed session" $RUN/driver.log | tail -3
+grep "inference=\|closed session" $RUN/driver.log | tail -3
 exit $RC
