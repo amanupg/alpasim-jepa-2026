@@ -49,3 +49,17 @@
   1. GPU memory and latency per plan;
   2. offline sanity on nuPlan navtest frames;
   3. 100-scene local closed loop vs Alpamayo v0.3.
+
+## 2026-09-29 Insomnia setup (Aman: option A, use Insomnia)
+- **Cluster folder** `/insomnia001/depts/edu/users/au2327/alpasim-jepa`:
+  - `ext/WA-JEPA` @ bec2966 (git clone);
+  - `weights/wa-jepa/model_state_dict.pt` from HF `AFARI-Research/WA-JEPA` @ 15c0770e, sha256 `e1d3be01…6408`, identical to the local copy smoke-tested on the Mac;
+  - `envs/overlay`: opencv-python-headless 4.12.0.88 and timm 0.9.16 (V-JEPA's `models/utils/modules.py` imports timm).
+- **Borrowed read-only** (BORROWED.md):
+  - nureasoning `ext/a15env` (torch 2.8 cu128, omegaconf, einops);
+  - alpasim `envs/overlay_driver` (grpc 1.84, protobuf 4.25.9, alpasim_grpc 0.54);
+  - alpasim simulator sandboxes and nuPlan data;
+  - alpasim summary/compare scripts (executed, not modified).
+- **Our launcher copy** (`src/compose_apptainer.py`) mounts every bind under the alpasim tree read-only and refuses to create anything there. The wizard runs with `-B alpasim:ro`; all outputs, caches and `defines.filesystem` live under alpasim-jepa.
+- **Baseline for pairing:** alpasim v0.3 nuPlan bench run `local_nuplan_a15_bench_12991555`. 100 scenes, 82 passed, mean scene score **0.759**; at-fault collision 0.03, offroad 0.06, left corridor 0.11, progress 0.85, dist-to-gt 1.80 m; 1000 Drive calls, mean 0.41 s.
+- **Jobs:** GPU memory/latency check (L40S), then the 100-scene closed loop on the same scene list (dependency afterok).
