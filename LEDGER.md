@@ -178,3 +178,22 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
   - apptainer replaces the image HOME with the host home, and `--env HOME` is ignored, so the driver is launched via `env HOME=/tmp/home`;
   - Slurm's TMPDIR (/local/slurm-job-N) is invisible in containers, so the simulator stack runs with TMPDIR=/tmp.
 - **Before a real submission:** rebuild from a clean commit so `WAJEPA_GIT_HASH` names it (dev build: e134b4c), then push to ECR (Aman).
+
+## 2026-09-30 Zero-shot WA-JEPA on the PAI track (Aman: "measure it on PAI")
+- **Setup:**
+  - `WAJEPA_RIG=pai`: NVIDIA cameras mapped onto WA-JEPA's nuPlan slots. `crop` = FOV-matched crops: front centre 0.53 x 0.57, cross-left right part, cross-right left part. `resize` = full 120-degree frames. The rear slot is grey.
+  - History: 4 frames 0.5 s apart picked from the 10 Hz stream. A new plan every 0.5 s, cached in between.
+  - Same 40 curated-val scenes as the AlpaSim v0.3 bench run `local_pai_a15_bench1_12991558` (4 rollouts per replica, RTX PRO 6000 Blackwell).
+  - Scene files read through symlinks into the AlpaSim data, bound read-only.
+- **Results** (jobs 12996625 / 12996626):
+
+| Driver | Mean scene score | Passed | vs Alpamayo v0.3 (paired) |
+|---|---|---|---|
+| Alpamayo v0.3 (main line) | 0.668 | 31/40 | |
+| WA-JEPA, crop | 0.250 | 21/40 | -0.418 [-0.559, -0.267], 6 W / 30 L |
+| WA-JEPA, resize | 0.301 | 17/40 | -0.368 [-0.512, -0.217], 4 W / 24 L |
+
+- **Failures (crop):** offroad 9, corridor 8, collision 2; progress 0.33. It drives slowly and loses the lane on the unfamiliar rig.
+- **Driver health:** 40 plans per scene, 0 fallbacks, 0 errors, 6,280 MiB. The adapter works; the model doesn't transfer.
+- **Oracle best of Alpamayo + WA-JEPA:** 0.762 (+0.094; +0.131 with both views). WA-JEPA is better on 6 of 40 scenes. A selector would have to spot those few scenes against a much weaker second driver, so this is a low-priority idea for the main line's chooser, not a plan.
+- **Conclusion:** as predicted, zero-shot WA-JEPA is far below Alpamayo on PAI. The track split stands: PAI stays on the Alpamayo line, and nuPlan moves to WA-JEPA.
