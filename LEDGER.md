@@ -120,3 +120,32 @@
   - 3 scenes fail for both drivers on a simulator route sanity check ("route folds back on itself").
   - 8 of WA-JEPA's offroad failures have dist_to_gt < 0.6 m (it follows the recorded path and is still offroad). Possibly map artifacts; not investigated.
 - WA-JEPA's driver process uses 5,442 MiB of GPU memory in every run; plans take 0.22 s each.
+
+## 2026-09-30 WA-JEPA vs the organisers' SimScale sample drivers (the field's easy baseline)
+The organisers ship NAVSIM sample images (checkpoints from `OpenDriveLab/SimScale`) that any team can submit. Here they run read-only from the upstream checkout, with the env of their Dockerfiles except torch 2.8 (vs 2.6) and opencv 4.12 (vs 4.9, numpy 2).
+- The GTRS vocabulary in our checkout was a git-lfs pointer; the real object (sha256 `e8c29cfc…`) was fetched from GitHub media.
+
+| Driver | Shard 001 (easy) | Shard 010 (held out) | Mean of both |
+|---|---|---|---|
+| **WA-JEPA** | **0.958** (96) | 0.729 (75) | **0.844** |
+| LTF (SimScale) | 0.907 (93) | 0.700 (73) | 0.804 |
+| DiffusionDrive (SimScale) | 0.853 (88) | 0.690 (72) | 0.772 |
+| GTRS-Dense ResNet reward (SimScale) | 0.813 (82) | **0.730** (73) | 0.772 |
+| Alpamayo v0.3 (ours, submitted) | 0.759 (82) | 0.510 (58) | 0.635 |
+
+- **Paired, WA-JEPA minus each sample:**
+  - Shard 001: LTF +0.051 [0.000, +0.101]; DiffusionDrive +0.105 [+0.050, +0.161]; GTRS +0.145 [+0.082, +0.212].
+  - Shard 010: LTF +0.029 [-0.059, +0.114]; DiffusionDrive +0.039 [-0.049, +0.126]; GTRS -0.001 [-0.086, +0.082].
+- **Reading:** WA-JEPA's big gain is over OUR Alpamayo entry (off-domain on nuPlan), not over the field. On held-out logs it is level with the organisers' samples. Teams above us (~1463-1469) plausibly run these samples, so WA-JEPA alone likely lands among them rather than clearly ahead.
+- **Headroom from complementarity** (per-scene oracle: best of the drivers):
+
+| Oracle best of | Shard 001 | Shard 010 |
+|---|---|---|
+| WA-JEPA + GTRS | 0.979 | 0.868 |
+| WA-JEPA + LTF | 0.990 | 0.862 |
+| WA-JEPA + LTF + GTRS | 1.000 | 0.894 |
+
+  - The drivers fail on different scenes (vs GTRS on shard 010: 16 wins / 16 losses). A runtime selector that recovered part of the +0.14 oracle gap would separate us from the field. Candidate: WA-JEPA and GTRS trajectories scored by GTRS's learned PDM-style reward head.
+  - 9 shard-010 scenes fail for every driver (3 are simulator route-sanity errors).
+- **Official reference:** Alpamayo v0.3 scored 0.827 mean scene score on the official 1000-scene nuPlan set. Local shards bracket it (0.759 and 0.510), so the official mix is between our two shards or easier.
+- **Slots:** all 3 September official slots are used. October gives 3 (deadline 2026-10-31); 2 nuplan-warmups remain in the rolling 30 days (1 used on Sep 27).
