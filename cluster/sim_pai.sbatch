@@ -32,7 +32,9 @@ fi
 # ---- our own nre-artifacts view of the AlpaSim PAI scene files
 # (the wizard reads both defines.sensordata and scenes.scene_cache as ${defines.filesystem}/nre-artifacts)
 PD=$B/data/fs/nre-artifacts; mkdir -p $PD/scenesets $PD/ego-hoods
-[ -L $PD/all-usdzs ] || ln -s $A/data/fs/nre-artifacts/all-usdzs $PD/all-usdzs
+# an earlier wizard run may have created an empty all-usdzs dir here: replace it with the symlink
+[ -L $PD/all-usdzs ] || { rm -f $PD/all-usdzs/all-usdzs; rmdir $PD/all-usdzs 2>/dev/null; ln -s $A/data/fs/nre-artifacts/all-usdzs $PD/all-usdzs; }
+[ -L $PD/all-usdzs ] || { echo "could not link all-usdzs"; exit 1; }
 
 # ---- driver: WA-JEPA, PAI rig mapping
 export WAJEPA_RIG=pai WAJEPA_PAI_VIEW=$VIEW

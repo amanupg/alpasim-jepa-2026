@@ -45,10 +45,11 @@ if [ $DRIVER = a15 ]; then
 elif [ $DRIVER = image ]; then
 # ---- driver: the submission image itself (apptainer sandbox of the docker image; its own ENV and code)
   IMG=${IMG:-$B/sandbox/wajepa-dev}
-  # apptainer overrides the image HOME with the host home (read-only here): restore the image value
+  # apptainer overrides the image HOME with the host home (read-only here) and ignores --env HOME:
+  # restore the image value in the process environment
   apptainer exec --nv --cleanenv --writable-tmpfs --pwd /app --no-home \
-      --env HOME=/tmp/home,ALPASIM_DRIVER_HOST=localhost,ALPASIM_DRIVER_PORT=$ALPASIM_DRIVER_PORT \
-      $IMG python -m wajepa_challenge.driver > $RUN/driver.log 2>&1 &
+      --env ALPASIM_DRIVER_HOST=localhost,ALPASIM_DRIVER_PORT=$ALPASIM_DRIVER_PORT \
+      $IMG env HOME=/tmp/home python -m wajepa_challenge.driver > $RUN/driver.log 2>&1 &
   READY="warm-up done"
 elif [ $DRIVER = ltf ] || [ $DRIVER = diffusiondrive ] || [ $DRIVER = gtrs ]; then
 # ---- reference drivers: the organisers' SimScale samples, read-only from the upstream checkout, with the
