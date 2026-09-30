@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH -A edu
-#SBATCH -p short   # the r6000 gres name exists on short (burst lists R6000)
+#SBATCH -p short,burst
 #SBATCH -J aj_pai
-#SBATCH --gres=gpu:r6000:1   # NRE (PAI renderer) needs driver >= 575: Blackwell nodes
-#SBATCH -c 12
-#SBATCH --mem=120G
-#SBATCH -t 06:00:00
+#SBATCH --gres=gpu:R6000:1   # NRE (PAI renderer) needs driver >= 575: Blackwell nodes
+#SBATCH -c 8
+#SBATCH --mem=64G
+#SBATCH -t 05:00:00   # as the AlpaSim PAI bench jobs (gres name is case-sensitive: R6000)
 #SBATCH -o /insomnia001/depts/edu/users/au2327/alpasim-jepa/logs/sim_pai_%j.out
 # Zero-shot WA-JEPA on the PAI track (diagnostic): the WA-JEPA driver with WAJEPA_RIG=pai
 # (NVIDIA cameras mapped onto WA-JEPA's nuPlan slots, 0.5 s history from the 10 Hz stream, a new
