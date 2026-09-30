@@ -28,7 +28,9 @@ import grpc
 from .batch_worker import BatchPolicy, BatchWorker
 from .navigation import DriveCommand, command_from_route, command_one_hot
 from .policy import ConstVelPolicy, InferenceInput, Prediction, WaJepaPolicy
-from .preprocessing import CAMERA_IDS, NUM_HISTORY, build_ego_status, relative_se2, resize_frame
+from .preprocessing import (
+    CAMERA_IDS, GREY, NUM_HISTORY, PAI_VIEWS, build_ego_status, crop_frac, grey_frame, relative_se2, resize_frame,
+)
 from .trajectory import (
     CachedPlan,
     build_trajectory_from_plan,
@@ -38,6 +40,18 @@ from .trajectory import (
 )
 
 LOGGER = logging.getLogger(__name__)
+
+# Rig selection. nuplan (default, the submission path): CAM_L0/F0/R0/B0 at 1920x1080, 2 Hz, every new
+# frame set is inferred. pai (diagnostic, zero-shot WA-JEPA on the PAI track): the NVIDIA cameras are
+# mapped onto WA-JEPA's slots (WAJEPA_PAI_VIEW=resize|crop), history frames are picked 0.5 s apart from
+# the 10 Hz stream, and a new plan is made at most every WAJEPA_MIN_INFER_INTERVAL_US (cached in between).
+RIG = os.environ.get("WAJEPA_RIG", "nuplan")
+if RIG not in ("nuplan", "pai"):
+    raise ValueError(f"WAJEPA_RIG must be nuplan or pai, got {RIG!r}")
+PAI_VIEW = PAI_VIEWS[os.environ.get("WAJEPA_PAI_VIEW", "crop")] if RIG == "pai" else None
+HISTORY_STRIDE_US = int(os.environ.get("WAJEPA_HISTORY_STRIDE_US", "500000" if RIG == "pai" else "0"))
+MIN_INFER_INTERVAL_US = int(os.environ.get("WAJEPA_MIN_INFER_INTERVAL_US", "450000" if RIG == "pai" else "0"))
+FRAME_MATCH_TOL_US = 60_000
 
 _RUNTIME_WRITE_DIR_DEFAULTS = {
     "HOME": "/tmp/home",
@@ -157,7 +171,11 @@ class SessionState:
 
         cache = self.images[camera_id]
         cache[int(timestamp_us)] = image
-        retained = sorted(cache.items())[-(NUM_HISTORY + 2):]
+        if HISTORY_STRIDE_US > 0:
+            horizon = int(timestamp_us) - NUM_HISTORY * HISTORY_STRIDE_US - FRAME_MATCH_TOL_US
+            retained = [(t, v) for t, v in sorted(cache.items()) if t >= horizon]
+        else:
+            retained = sorted(cache.items())[-(NUM_HISTORY + 2):]
         cache.clear()
         cache.update(retained)
 
@@ -207,7 +225,18 @@ class SessionState:
             common = ts if common is None else common & ts
         if not common:
             raise LookupError("no complete synchronized camera set")
-        times = sorted(common)[-NUM_HISTORY:]
+        if HISTORY_STRIDE_US > 0:
+            # 10 Hz stream: newest common frame, then the common frames nearest to 0.5 s steps back
+            ordered = sorted(common)
+            times = [ordered[-1]]
+            for k in range(1, NUM_HISTORY):
+                target = ordered[-1] - k * HISTORY_STRIDE_US
+                best = min(ordered, key=lambda t: abs(t - target))
+                if abs(best - target) > FRAME_MATCH_TOL_US:
+                    break
+                times.insert(0, best)
+        else:
+            times = sorted(common)[-NUM_HISTORY:]
         padded = len(times) < NUM_HISTORY
         times = [times[0]] * (NUM_HISTORY - len(times)) + times
         return times, [{c: self.images[c][t] for c in CAMERA_IDS} for t in times], padded
@@ -433,7 +462,13 @@ class NavsimTransfuserDriver(egodriver_pb2_grpc.EgodriverServiceServicer):
             camera.logical_id
             for camera in request.rollout_spec.vehicle.available_cameras
         }
-        missing = sorted(set(CAMERA_IDS) - available)
+        required = set(CAMERA_IDS) if PAI_VIEW is None else {src for src, _ in PAI_VIEW.values() if src != GREY}
+        missing = sorted(required - available)
+        if PAI_VIEW is not None:
+            for camera in request.rollout_spec.vehicle.available_cameras:
+                if camera.logical_id in required:
+                    LOGGER.info("pai camera %s: %s", camera.logical_id,
+                                str(camera).replace("\n", " ")[:600])
         if missing:
             context.abort(
                 grpc.StatusCode.FAILED_PRECONDITION,
@@ -468,6 +503,8 @@ class NavsimTransfuserDriver(egodriver_pb2_grpc.EgodriverServiceServicer):
     ) -> common_pb2.Empty:
         session = self._get_session(request.session_uuid, context)
         grpc_image = request.camera_image
+        if PAI_VIEW is not None:
+            return self._submit_pai_image(request, session, context)
         if grpc_image.logical_id not in CAMERA_IDS:
             return common_pb2.Empty()
 
@@ -503,6 +540,26 @@ class NavsimTransfuserDriver(egodriver_pb2_grpc.EgodriverServiceServicer):
                     int(grpc_image.frame_end_us),
                     image,
                 )
+        return common_pb2.Empty()
+
+    def _submit_pai_image(self, request, session, context) -> common_pb2.Empty:
+        grpc_image = request.camera_image
+        slots = [(slot, box) for slot, (src, box) in PAI_VIEW.items() if src == grpc_image.logical_id]
+        if not slots:
+            return common_pb2.Empty()
+        try:
+            with Image.open(BytesIO(grpc_image.image_bytes)) as decoded:
+                image = np.asarray(decoded.convert("RGB")).copy()   # PAI width is scene-dependent
+        except (Image.DecompressionBombError, OSError, ValueError) as exc:
+            context.abort(grpc.StatusCode.INVALID_ARGUMENT, f"failed to decode {grpc_image.logical_id}: {exc}")
+            raise AssertionError("unreachable") from exc
+        frames = {slot: resize_frame(crop_frac(image, box)) for slot, box in slots}
+        if "CAM_F0" in frames:   # synthetic slots (grey) share the front camera's timestamps
+            frames.update({slot: grey_frame() for slot, (src, _) in PAI_VIEW.items() if src == GREY})
+        with self._lock:
+            if self._sessions.get(request.session_uuid) is session:
+                for slot, frame in frames.items():
+                    session.add_image(slot, int(grpc_image.frame_end_us), frame)
         return common_pb2.Empty()
 
     def submit_egomotion_observation(
@@ -589,7 +646,7 @@ class NavsimTransfuserDriver(egodriver_pb2_grpc.EgodriverServiceServicer):
             cached_before = session.cached_plan
             timestamp_is_new = image_timestamp_us is not None and (
                 session.last_inference_timestamp_us is None
-                or image_timestamp_us > session.last_inference_timestamp_us
+                or image_timestamp_us >= session.last_inference_timestamp_us + max(1, MIN_INFER_INTERVAL_US)
             )
             should_infer = (
                 worker is not None

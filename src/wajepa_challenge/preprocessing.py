@@ -60,3 +60,40 @@ def build_ego_status(command_one_hot: np.ndarray, velocity_xy: np.ndarray, accel
     if not np.isfinite(st).all():
         raise ValueError("ego status contains non-finite values")
     return st
+
+
+# ---- PAI track (diagnostic, WAJEPA_RIG=pai): map the NVIDIA rig onto WA-JEPA's nuPlan slots.
+# PAI sends 10 Hz frames from 120-degree f-theta cameras (front wide, cross left/right), 70-degree
+# rear corners and a 30-degree tele; there is no straight-back camera. nuPlan's L0/F0/R0/B0 are
+# ~64-degree pinhole cameras at about +55/0/-55/180 degrees. Crop boxes are image fractions
+# (x0, y0, x1, y1), derived from equal angle per pixel over the 120-degree width (~16 px/deg):
+#   front: centre 64 deg -> 0.53 of the width, vertical 38.5 deg -> 0.57 of the height;
+#   cross left (assumed to face +90 deg, forward edge on the image's right): 30-94 deg -> x 0.47-1.0;
+#   cross right: mirror -> x 0.0-0.53. The rear slot gets mid-grey (no matching camera).
+GREY = "grey"
+PAI_VIEWS: dict[str, dict[str, tuple[str, tuple[float, float, float, float]]]] = {
+    "resize": {
+        "CAM_L0": ("camera_cross_left_120fov", (0.0, 0.0, 1.0, 1.0)),
+        "CAM_F0": ("camera_front_wide_120fov", (0.0, 0.0, 1.0, 1.0)),
+        "CAM_R0": ("camera_cross_right_120fov", (0.0, 0.0, 1.0, 1.0)),
+        "CAM_B0": (GREY, (0.0, 0.0, 1.0, 1.0)),
+    },
+    "crop": {
+        "CAM_L0": ("camera_cross_left_120fov", (0.47, 0.215, 1.0, 0.785)),
+        "CAM_F0": ("camera_front_wide_120fov", (0.235, 0.215, 0.765, 0.785)),
+        "CAM_R0": ("camera_cross_right_120fov", (0.0, 0.215, 0.53, 0.785)),
+        "CAM_B0": (GREY, (0.0, 0.0, 1.0, 1.0)),
+    },
+}
+
+
+def crop_frac(image_rgb: np.ndarray, box: tuple[float, float, float, float]) -> np.ndarray:
+    h, w = image_rgb.shape[:2]
+    x0, y0, x1, y1 = box
+    return image_rgb[int(round(y0 * h)):int(round(y1 * h)), int(round(x0 * w)):int(round(x1 * w))]
+
+
+def grey_frame() -> np.ndarray:
+    out = np.full((INPUT_H, INPUT_W, 3), 128, np.uint8)
+    out.setflags(write=False)
+    return out

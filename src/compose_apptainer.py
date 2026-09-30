@@ -87,6 +87,8 @@ def build(name, svc, a, gpus):
         if protected and "ro" not in parts[2:]:
             spec = [hp, parts[1], "ro"]
         cmd += ["-B", ":".join(spec)]
+    for eb in a.extra_bind:              # host paths bound at the same path, read-only (symlink targets)
+        cmd += ["-B", f"{eb}:{eb}:ro"]
     cmd += ["--pwd", svc.get("working_dir") or image_entry(svc["image"])[1]]
     env = {}
     for e in svc.get("environment") or []:
@@ -127,6 +129,8 @@ def main():
     ap.add_argument("--cache-dir", default="/insomnia001/depts/edu/users/au2327/alpasim-jepa/cache/containers")
     ap.add_argument("--timeout", type=int, default=1800)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--extra-bind", action="append", default=[],
+                    help="host path bound read-only at the same path in every service (e.g. symlinked scene data)")
     a = ap.parse_args()
     services = json.load(open(a.compose))["services"]
     gpus = (os.environ.get("CUDA_VISIBLE_DEVICES") or "0").split(",")
