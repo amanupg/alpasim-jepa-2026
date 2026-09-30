@@ -89,3 +89,34 @@
   - 100 local navtest scenes are not the hidden test set. The baseline scored 0.759 locally, and its official nuPlan PCS was 1296 (rank 19/71).
   - WA-JEPA's README states the navtest EPDMS eval; training is on navtrain (the NAVSIM protocol), so these scenes should be held out. Not verified from their training config.
 - **Next:** a nuPlan-only image with WA-JEPA, then a nuplan-warmup and an October slot. Needs Aman.
+
+## 2026-09-29 Validation of the WA-JEPA result (Aman: "check again rigorously")
+**Checks without new runs:**
+- **Config parity:** the wizard/eval/controller/trafficsim/driver configs of the baseline and WA-JEPA runs are identical apart from paths, ports and video rendering. The renderer logs are the same length with the same warnings. Results are independent runs: different run uuids, no shared rollout ids.
+- **Scene diversity (weakness):** the 100 shard-001 scenes come from only 4 logs / 11 segments (66 from one log). The AlpaSim local pool is only these 100 (38 GB); navtest has 1491 scene configs over 44 logs.
+- **No train/test overlap:**
+  - All 4 shard-001 logs are in NAVSIM `navtest.yaml` and absent from `navtrain.yaml` (checked against autonomousvision/navsim main).
+  - WA-JEPA fine-tunes on navtrain (`causal_future_jepa_mv_navsim.yaml`). Its stage-1 video pretraining uses nuPlan `splits/train`. navtest logs come from nuPlan's test split.
+- **Official preset** (`e2e_challenge_nuplan_common/base.yaml`, shared by dev and ec2): all 8 cameras including CAM_B0 at 1920x1080 / 0.5 s, so WA-JEPA's rear camera is delivered officially. The organisers' guide mentions only L0/F0/R0 because their samples use 3.
+- **Upstream `e2e_challenge`** is still at 2023534, so nothing changed since our pin.
+- **The baseline is the submitted v0.3 config** (`A15_INFERENCE_INTERVAL_US=1000000`, as verified inside the image, Result 8 of the alpasim ledger).
+- **Per segment** (shard 001): WA-JEPA is better on 10 of 11 segments and tied on 1. Its wins came from baseline low progress (19), corridor (8), offroad (5) and collision (3). Its 2 losses were offroad.
+
+**New runs** (L40S; `runs/nuplan_*`):
+
+| Run | Scenes | Mean score | Passed | vs Alpamayo v0.3, same scenes |
+|---|---|---|---|---|
+| WA-JEPA v1 (12994594) | shard 001 | 0.958 | 96 | +0.198 [+0.131, +0.265], 35 W / 2 L |
+| WA-JEPA rerun, video + frame dumps (12994800) | shard 001 | 0.958 | 96 | identical to v1 on all 100 scenes (deterministic) |
+| WA-JEPA, cameras blanked to grey (12994801) | shard 001 | 0.392 | 44 | -0.368 |
+| Constant velocity, no model (12994802) | shard 001 | 0.578 | 74 | -0.181 |
+| **Alpamayo v0.3** (12994804) | **shard 010** (new logs) | 0.510 | 58 | |
+| **WA-JEPA** (12994803) | **shard 010** | **0.729** | **75** | **+0.219 [+0.123, +0.312], 41 W / 11 L** |
+
+- **It uses the cameras:** blanking them drops the score from 0.958 to 0.392.
+- **The scenes are not trivial:** keeping constant velocity scores 0.578.
+- **Held-out shard 010** (4 other logs, 2021-09-16, 8 segments): the gain holds (+0.22), and WA-JEPA is better on 7 of 8 segments. Absolute scores are lower on this shard for both drivers, so shard 001 is an easy shard; local absolute numbers depend heavily on scene mix.
+  - Failures: Alpamayo offroad 30, corridor 5, collision 4. WA-JEPA offroad 15, corridor 5, collision 2.
+  - 3 scenes fail for both drivers on a simulator route sanity check ("route folds back on itself").
+  - 8 of WA-JEPA's offroad failures have dist_to_gt < 0.6 m (it follows the recorded path and is still offroad). Possibly map artifacts; not investigated.
+- WA-JEPA's driver process uses 5,442 MiB of GPU memory in every run; plans take 0.22 s each.
