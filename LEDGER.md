@@ -227,3 +227,23 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
   - route-to-command rule;
   - frozen-encoder fine-tune pilot on Insomnia;
   - rebuild the image from a clean commit (LICENSE/NOTICE included) and push (Aman).
+
+## 2026-10-01 GTRS judge for WA-JEPA plans, round 1 (global switching)
+- **Judge** (`src/wajepa_challenge/judge.py`, GTRS-Dense ResNet reward vendored from the NVIDIA sample @ 2023534):
+  - WA-JEPA's plan (resampled 8 → 40 poses) is appended to the 16,384-path vocabulary.
+  - Score s = log NC + log DAC + 3 log EP (sigmoids).
+  - GTRS's pick uses the sample's speed reranking. Drive GTRS's pick if s(GTRS) - s(WA-JEPA) > margin.
+- **CPU checks:** strict load under timm 0.9.16. The GTRS pick equals the sample's own forward pick. GTRS's pick appended as the extra candidate scores -1.4782 vs -1.4772 in-vocabulary.
+- **Closed loop**, paired against WA-JEPA on the same scenes (judge adds ~1 GB GPU):
+
+| Margin | Switched plans | Shard 001 (WA-JEPA 0.958) | Shard 010 (WA-JEPA 0.729) |
+|---|---|---|---|
+| inf (log only) | 0% | 0.958, identical | 0.729, identical |
+| 0 | 91-95% | 0.773 (-0.185 [-0.261, -0.112]) | 0.750 (+0.021 [-0.063, +0.108]) |
+| 2 | 18-22% | 0.891 (-0.067 [-0.124, -0.012]) | **0.805 (+0.077 [+0.029, +0.128])** |
+
+- **Mechanism** (scene outcome changes at margin 2):
+  - Switching rescues offroad scenes (3 on 001, 6 on 010) and corridor scenes (3 on 010).
+  - It creates corridor exits (6 on 001) and a few collisions. GTRS does not follow the route, so its picks drift off the recorded route.
+- **Next:** radius-limited judge. GTRS may only choose paths within R m of WA-JEPA's path (keeps route intent, allows safety/speed corrections). Runs (R, margin) = (1, 1), (2, 1), (2, 2) on both shards (13062081-86).
+  - The winner must then confirm on fresh shard 005 (fetch 13062087), since two configs were tuned on shards 001/010.
