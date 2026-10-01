@@ -260,3 +260,9 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **R=1, margin=1 is the only setting positive on both shards.** It was chosen among 3 (+2 global) settings on these same shards, so it must confirm on the untouched shard 005.
   - Shard 005: 100 scenes, 5 logs (2021-06-28, 2021-08-16, 2021-08-30); scene list in `runs/scenes_shard005`.
   - Runs: WA-JEPA 13062857, judge R1 m1 13062858, LTF 13062859, GTRS 13062860.
+
+## 2026-10-01 Warmup-ready image: `alpasim-jepa/wajepa:v1-4662979` (plain WA-JEPA)
+- Built from clean commit 4662979 (Docker id `sha256:53019680…`, 5.38 GB). It carries /app/LICENSE (Apache-2.0) and /app/NOTICE (all third-party components) per terms §5; the driver reports git_hash 4662979.
+- Local closed loop (job 13062216, apptainer sandbox of the docker archive): **0.958, identical to native WA-JEPA on all 100 shard-001 scenes.**
+- The judge is off by default in this image (`WAJEPA_JUDGE` unset); the GTRS weights are not included. A judge image would be a separate build.
+- **Next (Aman):** tag and push to ECR as `teams/amanupg:<tag>`, then submit a **nuplan-warmup** (not an official slot).
