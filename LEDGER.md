@@ -247,3 +247,16 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
   - It creates corridor exits (6 on 001) and a few collisions. GTRS does not follow the route, so its picks drift off the recorded route.
 - **Next:** radius-limited judge. GTRS may only choose paths within R m of WA-JEPA's path (keeps route intent, allows safety/speed corrections). Runs (R, margin) = (1, 1), (2, 1), (2, 2) on both shards (13062081-86).
   - The winner must then confirm on fresh shard 005 (fetch 13062087), since two configs were tuned on shards 001/010.
+
+## 2026-10-01 GTRS judge, round 2: radius-limited local correction
+- GTRS may only pick vocabulary paths within R m of WA-JEPA's path at every 0.1 s pose (best NC*DAC*EP^3 inside the radius). WA-JEPA's plan is replaced if s(pick) - s(WA-JEPA) > margin.
+
+| R, margin | Switched | Shard 001 (WA-JEPA 0.958) | Shard 010 (WA-JEPA 0.729) |
+|---|---|---|---|
+| **1, 1** | 22% / 14% | **0.989** (99 passed) **+0.032 [+0.010, +0.061]**, 5 W / 0 L | **0.776 +0.047 [+0.008, +0.095]**, 7 W / 6 L |
+| 2, 1 | 28% / 21% | 0.914 -0.044 [-0.095, +0.007] | 0.794 +0.065 [+0.016, +0.120] |
+| 2, 2 | 17% / 13% | 0.949 -0.008 [-0.054, +0.032] | 0.796 +0.067 [+0.020, +0.118] |
+
+- **R=1, margin=1 is the only setting positive on both shards.** It was chosen among 3 (+2 global) settings on these same shards, so it must confirm on the untouched shard 005.
+  - Shard 005: 100 scenes, 5 logs (2021-06-28, 2021-08-16, 2021-08-30); scene list in `runs/scenes_shard005`.
+  - Runs: WA-JEPA 13062857, judge R1 m1 13062858, LTF 13062859, GTRS 13062860.
