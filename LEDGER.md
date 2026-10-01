@@ -288,3 +288,11 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Judge image** `alpasim-jepa/wajepa:v2-judge-6672747` (Docker `dde3c672…`, 5.64 GB): GTRS checkpoint + vocabulary in /app/assets/gtrs (sha-checked in prepare.sh), judge on by default (R=1, margin 1), NOTICE items 6-7.
   - Mac read-only smoke test OK. Closed-loop check on shards 001 and 010 is queued after upload.
 - This replaces v1 as the warmup candidate if it reproduces the native judge runs (0.989 / 0.776).
+
+## 2026-10-01 Judge image verified: `alpasim-jepa/wajepa:v2-judge-6672747` (warmup candidate)
+- Closed loop as an apptainer sandbox of the docker archive:
+  - shard 001 (job 13063211): 0.989, identical to the native judge run on all 100 scenes;
+  - shard 010 (job 13063212): 0.776, identical on all 100.
+- 222 / 134 local corrections, the same as native. Drive mean 0.41 / 0.40 s.
+- **Next (Aman):** push as `teams/amanupg:nuplan-wajepa-judge-6672747`, submit **nuplan-warmup** (the 2nd of 3 in the rolling 30 days; the 1st was 2026-09-27).
+  - Read back the warmup status: success and the observed throughput wall time vs the limit.
