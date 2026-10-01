@@ -266,3 +266,25 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - Local closed loop (job 13062216, apptainer sandbox of the docker archive): **0.958, identical to native WA-JEPA on all 100 shard-001 scenes.**
 - The judge is off by default in this image (`WAJEPA_JUDGE` unset); the GTRS weights are not included. A judge image would be a separate build.
 - **Next (Aman):** tag and push to ECR as `teams/amanupg:<tag>`, then submit a **nuplan-warmup** (not an official slot).
+
+## 2026-10-01 Judge (R=1, margin 1) confirmed on the untouched shard 005; pooled 300 scenes
+- **Shard 005** (100 scenes, 5 logs not used for any choice):
+
+| Driver | Mean | Passed |
+|---|---|---|
+| WA-JEPA | 0.944 | 95 |
+| **WA-JEPA + GTRS judge** | **0.985** | **99** |
+| LTF | 0.900 | 92 |
+| GTRS | 0.886 | 89 |
+
+  - Judge vs WA-JEPA: +0.041 [+0.001, +0.081], 6 W / 2 L.
+- **Pooled over shards 001 + 010 + 005** (300 scenes, 17 logs; paired bootstrap 90%):
+  - Means: judge 0.917, WA-JEPA 0.877, LTF 0.836, GTRS 0.810.
+  - Judge - WA-JEPA: +0.040 [+0.019, +0.062], 18 W / 8 L.
+  - Judge - LTF: +0.081 [+0.045, +0.116].
+  - Judge - GTRS: +0.107 [+0.069, +0.146].
+  - WA-JEPA - LTF: +0.041 [+0.003, +0.079].
+- **Cost:** Drive mean 0.39 s (WA-JEPA alone 0.22 s; Alpamayo v0.3 0.41 s, which used 1,268 of the 3,000 s official budget). Driver GPU peak 5,716 MiB. About 14-22% of plans are locally corrected.
+- **Judge image** `alpasim-jepa/wajepa:v2-judge-6672747` (Docker `dde3c672…`, 5.64 GB): GTRS checkpoint + vocabulary in /app/assets/gtrs (sha-checked in prepare.sh), judge on by default (R=1, margin 1), NOTICE items 6-7.
+  - Mac read-only smoke test OK. Closed-loop check on shards 001 and 010 is queued after upload.
+- This replaces v1 as the warmup candidate if it reproduces the native judge runs (0.989 / 0.776).
