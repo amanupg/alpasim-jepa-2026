@@ -52,6 +52,9 @@ PAI_VIEW = PAI_VIEWS[os.environ.get("WAJEPA_PAI_VIEW", "crop")] if RIG == "pai" 
 HISTORY_STRIDE_US = int(os.environ.get("WAJEPA_HISTORY_STRIDE_US", "500000" if RIG == "pai" else "0"))
 MIN_INFER_INTERVAL_US = int(os.environ.get("WAJEPA_MIN_INFER_INTERVAL_US", "450000" if RIG == "pai" else "0"))
 FRAME_MATCH_TOL_US = 60_000
+# WAJEPA_JUDGE=gtrs keeps the newest raw 1920x1080 CAM_L0/F0/R0 frames for the GTRS judge (judge.py)
+JUDGE = os.environ.get("WAJEPA_JUDGE", "")
+JUDGE_CAMERAS = ("CAM_L0", "CAM_F0", "CAM_R0")
 
 _RUNTIME_WRITE_DIR_DEFAULTS = {
     "HOME": "/tmp/home",
@@ -156,6 +159,9 @@ class SessionState:
         default_factory=lambda: command_one_hot(DriveCommand.UNKNOWN)
     )
     cached_plan: CachedPlan | None = None
+    raw_images: dict[str, OrderedDict[int, np.ndarray]] = field(
+        default_factory=lambda: {camera_id: OrderedDict() for camera_id in JUDGE_CAMERAS}
+    )
     last_inference_timestamp_us: int | None = None
     inference_inflight_timestamp_us: int | None = None
     counters: SessionCounters = field(default_factory=SessionCounters)
@@ -531,10 +537,16 @@ class NavsimTransfuserDriver(egodriver_pb2_grpc.EgodriverServiceServicer):
                 f"got {image.shape}",
             )
             raise AssertionError("unreachable")
+        raw = image if JUDGE and grpc_image.logical_id in JUDGE_CAMERAS else None
         image = resize_frame(image)
 
         with self._lock:
             if self._sessions.get(request.session_uuid) is session:
+                if raw is not None:
+                    cache = session.raw_images[grpc_image.logical_id]
+                    cache[int(grpc_image.frame_end_us)] = raw
+                    while len(cache) > 2:
+                        cache.popitem(last=False)
                 session.add_image(
                     grpc_image.logical_id,
                     int(grpc_image.frame_end_us),
@@ -633,10 +645,14 @@ class NavsimTransfuserDriver(egodriver_pb2_grpc.EgodriverServiceServicer):
                         image_timestamp_us
                     )
                 poses = np.stack([session.pose_xyyaw_at(t) for t in times])
+                judge_images = None
+                if JUDGE and all(times[-1] in session.raw_images[c] for c in JUDGE_CAMERAS):
+                    judge_images = {c: session.raw_images[c][times[-1]] for c in JUDGE_CAMERAS}
                 inference_input = InferenceInput(
                     history=history,
                     history_trajectory=relative_se2(poses),
                     ego_status=build_ego_status(session.command_one_hot, velocity, acceleration),
+                    judge_images=judge_images,
                 )
                 if padded:
                     session.counters.history_pad += 1

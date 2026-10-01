@@ -7,6 +7,7 @@ casting weights to bf16 does NOT reproduce their numbers). Output: [8, 3] (x, y,
 """
 from __future__ import annotations
 
+import json
 import logging
 import math
 import os
@@ -27,6 +28,7 @@ class InferenceInput:
     history: list                    # NUM_HISTORY dicts camera_id -> uint8 256x512x3, oldest first
     history_trajectory: np.ndarray   # [NUM_HISTORY, 3] relative (x, y, yaw), last row = 0
     ego_status: np.ndarray           # [8]
+    judge_images: dict | None = None  # raw 1920x1080 CAM_L0/F0/R0 at the newest history time (WAJEPA_JUDGE)
 
     def __post_init__(self) -> None:
         if len(self.history) != NUM_HISTORY:
@@ -63,6 +65,12 @@ class WaJepaPolicy:
         self.ablate = os.environ.get("WAJEPA_ABLATE", "")
         self.dump_dir = os.environ.get("WAJEPA_DUMP_DIR", "")
         self.n_calls = 0
+        self.judge = None
+        if os.environ.get("WAJEPA_JUDGE", "") == "gtrs":
+            from .judge import GtrsJudge
+            self.judge = GtrsJudge(os.environ.get("WAJEPA_GTRS_CHECKPOINT", "/app/assets/gtrs/gtrs_dense_resnet_sim_reward_navhard.ckpt"),
+                                   os.environ.get("WAJEPA_GTRS_VOCAB", "/app/assets/gtrs/navsim_16384.npy"),
+                                   device=device, margin=float(os.environ.get("WAJEPA_JUDGE_MARGIN", "0")))
         from omegaconf import OmegaConf
 
         t0 = time.time()
@@ -135,4 +143,13 @@ class WaJepaPolicy:
             raise ValueError(f"WA-JEPA trajectory must be ({len(requests)}, 8, 3); got {traj.shape}")
         if not np.isfinite(traj).all():
             raise ValueError("WA-JEPA trajectory contains non-finite values")
-        return [Prediction(trajectory=t.copy()) for t in traj]
+        out = [t.copy() for t in traj]
+        if self.judge is not None:
+            for i, r in enumerate(requests):
+                if r.judge_images is None:
+                    continue
+                res = self.judge.judge(r.judge_images, r.ego_status, out[i])
+                LOGGER.info("judge %s", json.dumps(res["record"]))
+                if res["trajectory"] is not None:
+                    out[i] = res["trajectory"]
+        return [Prediction(trajectory=t) for t in out]

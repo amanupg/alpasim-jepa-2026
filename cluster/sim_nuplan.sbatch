@@ -73,7 +73,9 @@ elif [ $DRIVER = ltf ] || [ $DRIVER = diffusiondrive ] || [ $DRIVER = gtrs ]; th
 else
 # ---- driver: WA-JEPA through the organisers' NAVSIM adapter (src/wajepa_challenge)
   export WAJEPA_REPO=$B/ext/WA-JEPA WAJEPA_CONFIG=$B/ext/WA-JEPA/configs/wa_jepa_navsim_epdms.yaml \
-         WAJEPA_CHECKPOINT=$B/weights/wa-jepa/model_state_dict.pt
+         WAJEPA_CHECKPOINT=$B/weights/wa-jepa/model_state_dict.pt \
+         WAJEPA_GTRS_CHECKPOINT=$B/weights/simscale/gtrs_dense_resnet_sim_reward_navhard.ckpt \
+         WAJEPA_GTRS_VOCAB=$B/weights/simscale/navsim_16384.npy
   env PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 \
       PYTHONPATH=$B/envs/overlay:$A/envs/overlay_driver:$B/src \
       $NR/ext/a15env/bin/python -u -m wajepa_challenge.driver > $RUN/driver.log 2>&1 &
