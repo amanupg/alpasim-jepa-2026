@@ -206,3 +206,24 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **§8(c)/§13:** no third-party IP infringement. Removal is possible on a third-party IP claim.
   - The residual grey area is nuPlan's CC BY-NC-SA licence versus the commercial rights §5 grants NVIDIA over weights trained on it. It is shared by the organisers' own Apache-2.0 SimScale samples (nuPlan-trained) and every NAVSIM-based team. We cannot resolve it; the only remedy named is removal/disqualification of the Submission.
 - **§2:** eligibility (age, jurisdiction, not an NVIDIA employee or family): Aman's to confirm; nothing here is JEPA-specific.
+
+## 2026-09-30 New JEPA driving papers checked (Aman shared AD-E2E-JEPA)
+- **AD-E2E-JEPA** (arXiv 2609.34085, 2026-09-28; Zhu, Zhang, LeCun, Choromanska):
+  - Zero-shot planning needs **ground-truth future observations as goals**, which is unavailable at evaluation (rules: no information unavailable to the policy), so it is unusable in the challenge.
+  - Scores: 72.9 EPDMS zero-shot; 85.4 as imitation learning with its projector (vs WA-JEPA 91.7).
+  - The repo (HaoranZhuExplorer/AD-E2E-JEPA) holds only a README and images: no code, weights or licence.
+  - Its 16x/4x compressed features (256 candidate rollouts in 0.8 s) are the right kind of tool for candidate scoring, but it needs a goal or a learned scorer. Watch only.
+- **Auto-JEPA** (arXiv 2607.29031, 2026-07-31): NAVSIM v1 91.3 PDMS, v2 89.1 EPDMS (WA-JEPA 91.7). No code or weights mentioned. Watch only.
+
+## Plan (agreed 2026-09-30/10-01)
+- **Scope:** this thread owns nuPlan (WA-JEPA). The AlpaSim main line owns PAI (Alpamayo).
+- **Slots:** October slots: PAI up to 2, nuPlan 1 (Aman; suggested deciding slots 2-3 mid-October on evidence).
+- **nuPlan, one official slot:** submit around Oct 20-24 with the best locally validated system. Plain WA-JEPA is the fallback, and every add-on must beat it on held-out scenes.
+  - Warmup 1 (plain WA-JEPA, early October) and warmup 2 (exact final image) first.
+- **Next work:**
+  - nuPlan leaderboard paste from Aman, for calibration against the host's sample-driver entries;
+  - stream more navtest shards (download, run, delete);
+  - WA-JEPA + GTRS scorer;
+  - route-to-command rule;
+  - frozen-encoder fine-tune pilot on Insomnia;
+  - rebuild the image from a clean commit (LICENSE/NOTICE included) and push (Aman).
