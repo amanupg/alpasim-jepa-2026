@@ -1,5 +1,7 @@
 # AlpaSim E2E challenge, nuPlan track driver: WA-JEPA (V-JEPA 2.1 ViT-L world-action model, 788M params,
-# fp32 weights under bf16 autocast) behind the organisers' NAVSIM adapter (src/wajepa_challenge).
+# fp32 weights under bf16 autocast) behind the organisers' NAVSIM adapter (src/wajepa_challenge), with the
+# GTRS-Dense judge (judge.py): local corrections within 1 m of WA-JEPA's path when GTRS's NC*DAC*EP^3
+# score is higher by more than 1 (LEDGER 2026-10-01). WAJEPA_JUDGE= (empty) restores plain WA-JEPA.
 # Build context = alpasim-jepa/. Inputs staged by container/prepare.sh.
 #   docker buildx build --platform linux/amd64 --load -f container/Dockerfile.wajepa -t <tag> .
 # Versions match the environment the driver was validated in on Insomnia (LEDGER.md):
@@ -29,6 +31,7 @@ RUN pip install --no-deps /tmp/alpasim_grpc && rm -rf /tmp/alpasim_grpc \
 # 3) model: WA-JEPA code (Apache-2.0, LICENSE kept) and weights (3.2 GB fp32)
 COPY container/assets/wa_jepa_code /app/wa_jepa
 COPY container/assets/wa_jepa/model_state_dict.pt /app/assets/wa_jepa/model_state_dict.pt
+COPY container/assets/gtrs /app/assets/gtrs
 
 # 4) our code and the licence notice the challenge terms require (section 5), last: cheap to re-push
 COPY src/wajepa_challenge /app/wajepa_challenge
@@ -41,7 +44,10 @@ ARG GIT_HASH=unknown
 ENV ALPASIM_DRIVER_HOST=0.0.0.0 ALPASIM_DRIVER_PORT=6789 ALPASIM_DRIVER_GRPC_WORKERS=4 \
     WAJEPA_REPO=/app/wa_jepa WAJEPA_CONFIG=/app/wa_jepa/configs/wa_jepa_navsim_epdms.yaml \
     WAJEPA_CHECKPOINT=/app/assets/wa_jepa/model_state_dict.pt WAJEPA_DEVICE=cuda \
-    WAJEPA_MAX_BATCH_SIZE=2 WAJEPA_BATCH_WINDOW_MS=2 WAJEPA_GIT_HASH=$GIT_HASH
+    WAJEPA_MAX_BATCH_SIZE=2 WAJEPA_BATCH_WINDOW_MS=2 WAJEPA_GIT_HASH=$GIT_HASH \
+    WAJEPA_JUDGE=gtrs WAJEPA_JUDGE_RADIUS=1 WAJEPA_JUDGE_MARGIN=1 \
+    WAJEPA_GTRS_CHECKPOINT=/app/assets/gtrs/gtrs_dense_resnet_sim_reward_navhard.ckpt \
+    WAJEPA_GTRS_VOCAB=/app/assets/gtrs/navsim_16384.npy
 EXPOSE 6789
 STOPSIGNAL SIGTERM
 USER 10001:10001

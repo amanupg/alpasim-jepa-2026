@@ -21,4 +21,12 @@ if ! echo "$WA_SHA  $W" | shasum -a 256 -c - >/dev/null 2>&1; then
   mv $W.part $W
 fi
 echo "$WA_SHA  $W" | shasum -a 256 -c -
+# GTRS-Dense judge (organisers' SimScale sample): checkpoint from HF OpenDriveLab/SimScale (Apache-2.0),
+# vocabulary = the git-lfs object of NVlabs/alpasim @ 2023534 (the checkout holds a pointer)
+G=$S/gtrs; mkdir -p $G
+get() { echo "$2  $G/$1" | shasum -a 256 -c - >/dev/null 2>&1 || curl -sSfL --retry 5 -o $G/$1 "$3"; echo "$2  $G/$1" | shasum -a 256 -c -; }
+get gtrs_dense_resnet_sim_reward_navhard.ckpt 8dad0395332ccd844785cbfc7c9e24cb3f8d8dbf5cb9ca7f8f8dc75478fcf409 \
+  https://huggingface.co/datasets/OpenDriveLab/SimScale/resolve/main/SimScale_ckpts/GTRS_Dense/gtrs_dense_resnet_sim_reward_navhard.ckpt
+get navsim_16384.npy e8c29cfc25add59ae8b64769a4554c6518878726178c0bd889fc8518ebe1261d \
+  https://media.githubusercontent.com/media/NVlabs/alpasim/$UP_COMMIT/e2e_challenge/sample_submission_simscale_navsim_gtrs_dense/assets/gtrs_dense/navsim_16384.npy
 du -sh $S/*

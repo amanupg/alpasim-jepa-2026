@@ -2,6 +2,7 @@
 !container/assets/alpasim_grpc/**
 !container/assets/wa_jepa_code/**
 !container/assets/wa_jepa/model_state_dict.pt
+!container/assets/gtrs/**
 !src/wajepa_challenge/**
 !container/LICENSE
 !container/NOTICE

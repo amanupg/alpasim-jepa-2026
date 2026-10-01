@@ -28,7 +28,19 @@ Third-party components incorporated in this image (all compatible with Apache-2.
 5. alpasim_grpc 0.54.0 (installed Python package), NVlabs/alpasim src/grpc @ 2023534
    Copyright (c) 2026 NVIDIA Corporation. License: Apache-2.0
 
-6. Python packages installed from PyPI / download.pytorch.org, each under its own permissive
+6. GTRS-Dense judge code: /app/wajepa_challenge/gtrs (vendored, unmodified apart from merging
+   policy.py loading helpers and preprocessing.py into io_utils.py), from NVlabs/alpasim
+   e2e_challenge/sample_submission_simscale_navsim_gtrs_dense @ 2023534 (an inference adaptation of
+   SimScale GTRS-Dense). Copyright (c) 2026 NVIDIA Corporation. License: Apache-2.0
+   (/app/wajepa_challenge/gtrs/LICENSE, NOTICE.md)
+
+7. GTRS-Dense checkpoint: /app/assets/gtrs/gtrs_dense_resnet_sim_reward_navhard.ckpt
+   Hugging Face dataset OpenDriveLab/SimScale, SimScale_ckpts/GTRS_Dense,
+   sha256 8dad0395332ccd844785cbfc7c9e24cb3f8d8dbf5cb9ca7f8f8dc75478fcf409. License: Apache-2.0.
+   Trajectory vocabulary /app/assets/gtrs/navsim_16384.npy from NVlabs/alpasim @ 2023534 (git-lfs),
+   sha256 e8c29cfc25add59ae8b64769a4554c6518878726178c0bd889fc8518ebe1261d. License: Apache-2.0.
+
+8. Python packages installed from PyPI / download.pytorch.org, each under its own permissive
    license: torch 2.8.0 and torchvision 0.23.0 (BSD-3-Clause; bundled NVIDIA CUDA runtime
    libraries under NVIDIA's redistributable terms), numpy (BSD-3-Clause), timm 0.9.16
    (Apache-2.0), omegaconf (BSD-3-Clause), einops (MIT), opencv-python-headless 4.12
