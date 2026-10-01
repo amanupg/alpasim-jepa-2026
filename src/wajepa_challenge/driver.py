@@ -653,6 +653,7 @@ class NavsimTransfuserDriver(egodriver_pb2_grpc.EgodriverServiceServicer):
                     history_trajectory=relative_se2(poses),
                     ego_status=build_ego_status(session.command_one_hot, velocity, acceleration),
                     judge_images=judge_images,
+                    tag=request.session_uuid,
                 )
                 if padded:
                     session.counters.history_pad += 1

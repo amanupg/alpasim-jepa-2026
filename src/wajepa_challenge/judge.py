@@ -9,6 +9,10 @@ candidate, in one pass:
 GTRS's own pick is taken over the vocabulary with the sample's settings (speed enhancement on:
 top-64 speed reranking, weight 3). WA-JEPA's plan is kept unless s(GTRS pick) - s(WA-JEPA) > margin.
 margin = inf only logs the scores (pure WA-JEPA driving).
+radius (metres, default inf): if finite, GTRS may only pick candidates whose path stays within `radius`
+of WA-JEPA's path at every 0.1 s pose, i.e. a local safety/speed correction that keeps WA-JEPA's route
+intent (global switching fixed offroad scenes but caused corridor exits: GTRS ignores the route).
+Within the radius the pick is the best NC*DAC*EP^3 score (no speed reranking).
 """
 from __future__ import annotations
 
@@ -43,9 +47,11 @@ def vocab_poses_to_plan(poses: np.ndarray) -> np.ndarray:
 
 
 class GtrsJudge:
-    def __init__(self, checkpoint_path: str, vocabulary_path: str, device: str = "cuda", margin: float = 0.0) -> None:
+    def __init__(self, checkpoint_path: str, vocabulary_path: str, device: str = "cuda", margin: float = 0.0,
+                 radius: float = math.inf) -> None:
         self.device = torch.device(device)
         self.margin = float(margin)
+        self.radius = float(radius)
         vocabulary = load_navhard_vocabulary(vocabulary_path)
         payload = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         state_dict = normalized_checkpoint(payload, vocabulary)
@@ -54,7 +60,7 @@ class GtrsJudge:
                                speed_top_k=SPEED_TOP_K, speed_weight=SPEED_WEIGHT)
         model.load_state_dict(state_dict, strict=True)
         self.model = model.to(self.device).eval()
-        LOGGER.info("GTRS judge loaded (%d tensors), margin %s", len(state_dict), self.margin)
+        LOGGER.info("GTRS judge loaded (%d tensors), margin %s, radius %s", len(state_dict), self.margin, self.radius)
 
     @torch.inference_mode()
     def judge(self, images: dict, ego_status: np.ndarray, plan: np.ndarray) -> dict:
@@ -77,10 +83,17 @@ class GtrsJudge:
         heads = {k: head.heads[k](features).squeeze(-1)
                  for k in ("no_at_fault_collisions", "drivable_area_compliance", "ego_progress")}
         base = _trajectory_scores(heads, NC_DAC_EP_SCORER, EP_EXPONENT)                # [1, n + 1]
-        picked = _speed_reranked_scores(base[:, :n], vocab, top_k=SPEED_TOP_K, speed_weight=SPEED_WEIGHT,
-                                        speed_proxy="longitudinal", curvature_weight=0.0,
-                                        heading_change_weight=0.0)
-        g = int(picked.argmax(1)[0])
+        if math.isfinite(self.radius):
+            deviation = torch.linalg.vector_norm(vocab[:, :, :2] - extra[None, :, :2], dim=-1).amax(1)   # [n]
+            local = base[0, :n].masked_fill(deviation > self.radius, -math.inf)
+            if not torch.isfinite(local).any():
+                return {"trajectory": None, "record": {"s_w": round(float(base[0, n]), 4), "local": 0, "use_gtrs": False}}
+            g = int(local.argmax())
+        else:
+            picked = _speed_reranked_scores(base[:, :n], vocab, top_k=SPEED_TOP_K, speed_weight=SPEED_WEIGHT,
+                                            speed_proxy="longitudinal", curvature_weight=0.0,
+                                            heading_change_weight=0.0)
+            g = int(picked.argmax(1)[0])
         s_g, s_w = float(base[0, g]), float(base[0, n])
         use_gtrs = math.isfinite(self.margin) and (s_g - s_w) > self.margin
         sub = {k: v.sigmoid()[0] for k, v in heads.items()}

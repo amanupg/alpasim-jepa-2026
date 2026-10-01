@@ -28,6 +28,7 @@ class InferenceInput:
     history: list                    # NUM_HISTORY dicts camera_id -> uint8 256x512x3, oldest first
     history_trajectory: np.ndarray   # [NUM_HISTORY, 3] relative (x, y, yaw), last row = 0
     ego_status: np.ndarray           # [8]
+    tag: str = ""                    # session uuid, for the judge log
     judge_images: dict | None = None  # raw 1920x1080 CAM_L0/F0/R0 at the newest history time (WAJEPA_JUDGE)
 
     def __post_init__(self) -> None:
@@ -70,7 +71,8 @@ class WaJepaPolicy:
             from .judge import GtrsJudge
             self.judge = GtrsJudge(os.environ.get("WAJEPA_GTRS_CHECKPOINT", "/app/assets/gtrs/gtrs_dense_resnet_sim_reward_navhard.ckpt"),
                                    os.environ.get("WAJEPA_GTRS_VOCAB", "/app/assets/gtrs/navsim_16384.npy"),
-                                   device=device, margin=float(os.environ.get("WAJEPA_JUDGE_MARGIN", "0")))
+                                   device=device, margin=float(os.environ.get("WAJEPA_JUDGE_MARGIN", "0")),
+                                   radius=float(os.environ.get("WAJEPA_JUDGE_RADIUS", "inf")))
         from omegaconf import OmegaConf
 
         t0 = time.time()
@@ -149,7 +151,7 @@ class WaJepaPolicy:
                 if r.judge_images is None:
                     continue
                 res = self.judge.judge(r.judge_images, r.ego_status, out[i])
-                LOGGER.info("judge %s", json.dumps(res["record"]))
+                LOGGER.info("judge %s", json.dumps({"session": r.tag, **res["record"]}))
                 if res["trajectory"] is not None:
                     out[i] = res["trajectory"]
         return [Prediction(trajectory=t) for t in out]
