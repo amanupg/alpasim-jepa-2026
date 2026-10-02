@@ -328,3 +328,16 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
   - 32/32 valid scored rollouts;
   - observed wall time **271.6 s of 2,700 s** (margin 2,428 s); started 05:47, completed 05:55 UTC.
 - The form factor and real-server throughput are fine. This was the 2nd nuplan-warmup in the rolling 30 days (1st 2026-09-27); one left until ~Oct 27.
+
+## 2026-10-02 Route command: audit and "route bridge"; trajectory time scale
+- **NAVSIM's label** (NAVSIM paper/supplementary): the route-centreline point s = 20 m ahead of the ego; LEFT/RIGHT if its lateral offset exceeds +/- 2 m.
+  - The organisers' sample rule reads the first route waypoint, which is ~40 m ahead (`route_start_offset_m: 40`).
+- **Audit** (`src/analysis/route_audit.py`, logged route_request messages of 297 WA-JEPA rollouts on shards 001/010/005, 2,970 steps):
+  - Organisers STRAIGHT: bridge agrees 1,345, says turn 29.
+  - Organisers LEFT/RIGHT: bridge agrees 1,035, says **STRAIGHT 551** (19% of all steps), says the opposite turn 10.
+  - **Correction:** the earlier note "the organisers' rule almost always gives STRAIGHT" was wrong. It over-signals turns relative to NAVSIM's label.
+- **Route bridge** (`route_bridge.py`, `WAJEPA_COMMAND=bridge`): cubic Hermite from the ego (heading +x) to the first waypoint (route heading), then NAVSIM's s = 20 m / 2 m rule. Unit-tested on synthetic straight, gentle-curve, turned and empty routes.
+- **Trajectory time scale** (`timewarp.py`, `WAJEPA_TIME_SCALE`): the organisers' GTRS-sample warp in [1.0, 1.25]. It reads the plan ahead in the near term (t <= 1 s at scale*t, then +lead tapering to 0 at 4 s) so the MPC keeps up; the endpoint is unchanged.
+  - Lucifer AI's top-eligible image `routebridge-scale125` (0.879 / PCS 1553) matches **route bridge + time scale 1.25** (inference from the name, not verified).
+  - Official dist_to_gt is ~2.2 m for the NAVSIM samples vs ~0.7 m for the top entries, consistent with plan-tracking lag.
+- **Runs:** WA-JEPA and the judge, each with bridge and bridge + scale 1.25, on shards 001/010/005 (13101161-66, 13101187-92).
