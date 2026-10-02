@@ -112,7 +112,7 @@ apptainer exec -B $B $SIF /repo/.venv/bin/python -c "import yaml,json; json.dump
 # Slurm sets TMPDIR=/local/slurm-job-N, which the containers cannot see (warp's NVRTC kernel build
 # failed with 'cannot open temporary file'): use /tmp, which apptainer binds
 TMPDIR=/tmp python3 $B/src/compose_apptainer.py $RUN/docker-compose.json --sif-dir $A/sandbox --repo-host $REPO \
-  --logdir $RUN/svc-logs --cache-dir $B/cache/containers
+  --logdir $RUN/svc-logs --cache-dir $B/cache/containers --timeout 3600   # renderer start can exceed 30 min on some nodes (ins038/039, 2026-10-02)
 RC=$?
 echo "runtime exit $RC"
 python3 $A/src/summarize_run.py $RUN
