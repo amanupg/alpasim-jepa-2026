@@ -341,3 +341,14 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
   - Lucifer AI's top-eligible image `routebridge-scale125` (0.879 / PCS 1553) matches **route bridge + time scale 1.25** (inference from the name, not verified).
   - Official dist_to_gt is ~2.2 m for the NAVSIM samples vs ~0.7 m for the top entries, consistent with plan-tracking lag.
 - **Runs:** WA-JEPA and the judge, each with bridge and bridge + scale 1.25, on shards 001/010/005 (13101161-66, 13101187-92).
+
+## 2026-10-02 WA-JEPA ignores the drive command; route snapping instead
+- **Bridge command alone changes nothing:** WA-JEPA + bridge on shard 001 = 0.958 and judge + bridge = 0.989, identical to the organisers' rule on all 100 scenes (13101161/62). The setting reached the driver (variant.env WAJEPA_COMMAND=bridge).
+- **Direct test** (CPU, real frames dumped from run 12994800, call 100, ego 10.5 m/s): the plan at 4 s is (42.16, 3.30) LEFT, (42.13, 3.32) STRAIGHT, (42.30, 3.30) RIGHT, (43.33, 3.41) UNKNOWN.
+  - **WA-JEPA's plan does not depend on LEFT/STRAIGHT/RIGHT** (cm-level); it follows the visible road, so at junctions it cannot be told the branch.
+  - The remaining bridge-only runs were cancelled (13101163-66).
+- **Route snapping** (`snap_plan_to_route`, `WAJEPA_ROUTE_SNAP=1`): keep each plan pose's arc length (progress) and the model's own path within 5 m. Blend linearly onto the bridged route by 25 m; yaw from the blended path; no change without a route or when stationary. Unit-tested.
+  - The route is a runtime input (the policy receives it every step), so this is allowed.
+- **Runs:**
+  - judge + snap and judge + snap + scale 1.25 on shards 001/010/005 (13101796-801);
+  - WA-JEPA / judge + bridge + scale 1.25 (13101187-92; the bridge is a no-op, so these isolate the time scale).
