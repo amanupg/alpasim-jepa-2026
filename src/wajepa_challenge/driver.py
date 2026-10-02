@@ -28,6 +28,7 @@ import grpc
 from .batch_worker import BatchPolicy, BatchWorker
 from .navigation import DriveCommand, command_from_route, command_one_hot
 from .route_bridge import bridge_one_hot
+from .timewarp import warp_plan
 from .policy import ConstVelPolicy, InferenceInput, Prediction, WaJepaPolicy
 from .preprocessing import (
     CAMERA_IDS, GREY, NUM_HISTORY, PAI_VIEWS, build_ego_status, crop_frac, grey_frame, relative_se2, resize_frame,
@@ -58,6 +59,7 @@ JUDGE = os.environ.get("WAJEPA_JUDGE", "")
 # drive command: organisers (sample rule, first waypoint >= 5 m, |y| > 2 m: reads ~40 m out) or bridge
 # (route_bridge.py: NAVSIM's s = 20 m / 2 m label on the route bridged from the ego)
 COMMAND_RULE = os.environ.get("WAJEPA_COMMAND", "organisers")
+TIME_SCALE = float(os.environ.get("WAJEPA_TIME_SCALE", "1.0"))     # timewarp.py, [1.0, 1.25]
 if COMMAND_RULE not in ("organisers", "bridge"):
     raise ValueError(f"WAJEPA_COMMAND must be organisers or bridge, got {COMMAND_RULE!r}")
 JUDGE_CAMERAS = ("CAM_L0", "CAM_F0", "CAM_R0")
@@ -700,7 +702,7 @@ class NavsimTransfuserDriver(egodriver_pb2_grpc.EgodriverServiceServicer):
                     fresh_plan = make_cached_plan(
                         reserved_timestamp_us,
                         inference_pose,
-                        prediction.trajectory,
+                        warp_plan(prediction.trajectory, TIME_SCALE) if TIME_SCALE != 1.0 else prediction.trajectory,
                     )
                 except Exception as exc:
                     inference_error = exc

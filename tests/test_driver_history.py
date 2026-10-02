@@ -124,3 +124,14 @@ def test_route_bridge_rule():
     lateral = np.stack([np.full(20, 20.0), 8 + np.arange(20) * 2.0], 1)   # route already turned left
     assert C(lateral).name == "LEFT" and C(lateral * [1, -1]).name == "RIGHT"
     assert C(np.zeros((0, 2))).name == "UNKNOWN"
+
+
+def test_timewarp_matches_organisers_rule():
+    import numpy as np
+    from wajepa_challenge.timewarp import warp_plan, warped_source_times
+    t = np.arange(0, 9) * 0.5
+    np.testing.assert_allclose(warped_source_times(t, 1.25), [0, 0.625, 1.25, 1.75, 2.25, 2.75, 3.25, 3.625, 4.0])
+    plan = np.stack([np.arange(1, 9) * 2.5, np.zeros(8), np.zeros(8)], 1)       # 5 m/s
+    w = warp_plan(plan, 1.25)
+    assert w[0, 0] == 3.125 and w[-1, 0] == 20.0 and np.all(np.diff(w[:, 0]) > 0)
+    np.testing.assert_array_equal(warp_plan(plan, 1.0), plan)
