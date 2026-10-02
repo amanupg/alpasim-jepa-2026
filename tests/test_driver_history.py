@@ -135,3 +135,16 @@ def test_timewarp_matches_organisers_rule():
     w = warp_plan(plan, 1.25)
     assert w[0, 0] == 3.125 and w[-1, 0] == 20.0 and np.all(np.diff(w[:, 0]) > 0)
     np.testing.assert_array_equal(warp_plan(plan, 1.0), plan)
+
+
+def test_route_snap():
+    import numpy as np
+    from wajepa_challenge.route_bridge import snap_plan_to_route
+    plan = np.stack([np.arange(1, 9) * 2.5, np.zeros(8), np.zeros(8)], 1)       # straight 5 m/s, 20 m in 4 s
+    straight_route = np.stack([40 + np.arange(20) * 2.0, np.zeros(20)], 1)
+    np.testing.assert_allclose(snap_plan_to_route(plan, straight_route), plan, atol=1e-6)
+    left_route = np.stack([np.full(20, 15.0), 25 + np.arange(20) * 2.0], 1)   # road turned left
+    out = snap_plan_to_route(plan, left_route)
+    np.testing.assert_allclose(out[:2], plan[:2], atol=1e-6)                     # unchanged within 5 m
+    assert out[-1, 1] > 3.0 and abs(np.linalg.norm(out[-1, :2]) - 20.0) < 6.0     # bends left, similar progress
+    np.testing.assert_allclose(snap_plan_to_route(plan, np.zeros((0, 2))), plan)

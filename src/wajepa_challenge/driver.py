@@ -27,7 +27,7 @@ import grpc
 
 from .batch_worker import BatchPolicy, BatchWorker
 from .navigation import DriveCommand, command_from_route, command_one_hot
-from .route_bridge import bridge_one_hot
+from .route_bridge import bridge_one_hot, snap_plan_to_route
 from .timewarp import warp_plan
 from .policy import ConstVelPolicy, InferenceInput, Prediction, WaJepaPolicy
 from .preprocessing import (
@@ -60,6 +60,8 @@ JUDGE = os.environ.get("WAJEPA_JUDGE", "")
 # (route_bridge.py: NAVSIM's s = 20 m / 2 m label on the route bridged from the ego)
 COMMAND_RULE = os.environ.get("WAJEPA_COMMAND", "organisers")
 TIME_SCALE = float(os.environ.get("WAJEPA_TIME_SCALE", "1.0"))     # timewarp.py, [1.0, 1.25]
+# WAJEPA_ROUTE_SNAP=1: blend the plan onto the bridged route beyond 5 m (fully at 25 m), route_bridge.py
+ROUTE_SNAP = os.environ.get("WAJEPA_ROUTE_SNAP", "0") == "1"
 if COMMAND_RULE not in ("organisers", "bridge"):
     raise ValueError(f"WAJEPA_COMMAND must be organisers or bridge, got {COMMAND_RULE!r}")
 JUDGE_CAMERAS = ("CAM_L0", "CAM_F0", "CAM_R0")
@@ -167,6 +169,7 @@ class SessionState:
         default_factory=lambda: command_one_hot(DriveCommand.UNKNOWN)
     )
     cached_plan: CachedPlan | None = None
+    route_xy: np.ndarray | None = None
     raw_images: dict[str, OrderedDict[int, np.ndarray]] = field(
         default_factory=lambda: {camera_id: OrderedDict() for camera_id in JUDGE_CAMERAS}
     )
@@ -609,6 +612,7 @@ class NavsimTransfuserDriver(egodriver_pb2_grpc.EgodriverServiceServicer):
         with self._lock:
             if self._sessions.get(request.session_uuid) is session:
                 session.command_one_hot = command
+                session.route_xy = np.array([[w.x, w.y] for w in request.route.waypoints], np.float64).reshape(-1, 2)
         return common_pb2.Empty()
 
     def submit_recording_ground_truth(
@@ -699,11 +703,12 @@ class NavsimTransfuserDriver(egodriver_pb2_grpc.EgodriverServiceServicer):
                         inference_input,
                         timeout=_context_timeout(context),
                     )
-                    fresh_plan = make_cached_plan(
-                        reserved_timestamp_us,
-                        inference_pose,
-                        warp_plan(prediction.trajectory, TIME_SCALE) if TIME_SCALE != 1.0 else prediction.trajectory,
-                    )
+                    planned = prediction.trajectory
+                    if ROUTE_SNAP and session.route_xy is not None:
+                        planned = snap_plan_to_route(planned, session.route_xy)
+                    if TIME_SCALE != 1.0:
+                        planned = warp_plan(planned, TIME_SCALE)
+                    fresh_plan = make_cached_plan(reserved_timestamp_us, inference_pose, planned)
                 except Exception as exc:
                     inference_error = exc
                     LOGGER.exception(

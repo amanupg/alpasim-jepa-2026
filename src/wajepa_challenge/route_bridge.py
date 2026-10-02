@@ -65,3 +65,29 @@ def bridge_one_hot(route) -> np.ndarray:
     """gRPC Route -> NAVSIM command one-hot."""
     xy = np.array([[w.x, w.y] for w in route.waypoints], np.float64).reshape(-1, 2)
     return command_one_hot(command_from_route_bridge(xy))
+
+
+def snap_plan_to_route(plan: np.ndarray, waypoints_xy: np.ndarray, s0_m: float = 5.0, s1_m: float = 25.0) -> np.ndarray:
+    """Route following for a model that ignores the command (WA-JEPA, measured 2026-10-02).
+
+    Keeps the plan's progress (arc length s_i of each pose along the plan) and its own path near the
+    car, and blends onto the bridged route further out: weight w = 0 up to s0, rising linearly to 1 at
+    s1, then the pose sits on the route at the same arc length. Yaw follows the blended path.
+    Unchanged if there is no route or the plan is (nearly) stationary.
+    """
+    plan = np.asarray(plan, np.float64)
+    p = np.asarray(waypoints_xy, np.float64).reshape(-1, 2)
+    xy = plan[:, :2]
+    seg = np.linalg.norm(np.diff(np.vstack([np.zeros(2), xy]), axis=0), axis=1)
+    s = np.cumsum(seg)
+    if len(p) == 0 or s[-1] < 2.0:
+        return plan.copy()
+    poly = np.vstack([np.zeros(2), p]) if p[0, 0] <= 0.5 else bridged_route(p)
+    q = np.stack([point_at_arclength(poly, si) for si in s])
+    w = np.clip((s - s0_m) / max(s1_m - s0_m, 1e-6), 0.0, 1.0)[:, None]
+    out_xy = (1.0 - w) * xy + w * q
+    d = np.diff(np.vstack([np.zeros(2), out_xy]), axis=0)
+    yaw = np.arctan2(d[:, 1], d[:, 0])
+    moving = np.linalg.norm(d, axis=1) > 1e-3
+    yaw = np.where(moving, yaw, plan[:, 2])
+    return np.column_stack([out_xy, yaw])
