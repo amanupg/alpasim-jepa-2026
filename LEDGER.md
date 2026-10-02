@@ -322,3 +322,9 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
   - Do not spend the official nuPlan slot on WA-JEPA as is.
   - Next: route-command fix.
   - Next: find local conditions that reproduce the official ordering of these six drivers before trusting local gains.
+
+## 2026-10-02 nuplan-warmup SUCCEEDED (v2 judge image)
+- `323ebec6-1705-4104-be10-4e3ffef3f152`, digest `sha256:dde3c672…` (= `alpasim-jepa/wajepa:v2-judge-6672747`):
+  - 32/32 valid scored rollouts;
+  - observed wall time **271.6 s of 2,700 s** (margin 2,428 s); started 05:47, completed 05:55 UTC.
+- The form factor and real-server throughput are fine. This was the 2nd nuplan-warmup in the rolling 30 days (1st 2026-09-27); one left until ~Oct 27.
