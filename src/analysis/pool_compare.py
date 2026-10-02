@@ -5,6 +5,7 @@ ROOT = sys.argv[1]
 CONFIGS = {
     "wajepa":             ["nuplan_wajepa_v1_12994594", "nuplan_wajepa_shard010_12994803", "nuplan_wajepa_s005_*"],
     "judge":              ["nuplan_wajepa_judge_r1m1_13062081", "nuplan_wajepa_judge_r1m1_s010_*", "nuplan_wajepa_judge_r1m1_s005_*"],
+    "routefollow(no model)": ["nuplan_wajepa_routefollow_s001_*", "nuplan_wajepa_routefollow_s010_*", "nuplan_wajepa_routefollow_s005_*"],
     "judge+snap":         ["nuplan_wajepa_judge_snap_s001_*", "nuplan_wajepa_judge_snap_s010_*", "nuplan_wajepa_judge_snap_s005_*"],
     "judge+snap+ts125":   ["nuplan_wajepa_judge_snap_ts125_s001_*", "nuplan_wajepa_judge_snap_ts125_s010_*", "nuplan_wajepa_judge_snap_ts125_s005_*"],
     "wajepa+bridge+ts125": ["nuplan_wajepa_bridge_ts125_s001_*", "nuplan_wajepa_bridge_ts125_s010_*", "nuplan_wajepa_bridge_ts125_s005_*"],

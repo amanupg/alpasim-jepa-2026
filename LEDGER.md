@@ -352,3 +352,10 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Runs:**
   - judge + snap and judge + snap + scale 1.25 on shards 001/010/005 (13101796-801);
   - WA-JEPA / judge + bridge + scale 1.25 (13101187-92; the bridge is a no-op, so these isolate the time scale).
+
+## 2026-10-02 Leaderboard update (Aman, team view: 28 of 84 entries)
+- **We are 8th of 28 teams** (PCS 1290, v0.3); 6th among non-host teams.
+- **SymPhi `sp-1002a`** (submitted 2026-10-02 08:10): **PCS 1809, scene 0.94, at-fault distance 0.814, #1 overall** (above the host's 1762). Their previous entries were VaVAM-based at 0.55-0.70 scene score (`sp-0926b` 0.70).
+- Lucifer AI's 1560 entry (`e61f63b5`) now displays tag `lf-007`. It showed `routebridge-scale125-20260930-ee3099b0` in the 2026-10-02 JSON, so the name-based reading is weaker.
+- Go-straight alone scores 0.799 officially (most private scenes are simple), so route following + safe speed may be the main lever.
+- **Diagnostic queued:** a pure route follower (constant current speed, plan snapped to the route; `WAJEPA_ABLATE=constvel` + `WAJEPA_ROUTE_SNAP=1`) on all 3 shards.
