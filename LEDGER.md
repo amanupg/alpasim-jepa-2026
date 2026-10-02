@@ -296,3 +296,29 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - 222 / 134 local corrections, the same as native. Drive mean 0.41 / 0.40 s.
 - **Next (Aman):** push as `teams/amanupg:nuplan-wajepa-judge-6672747`, submit **nuplan-warmup** (the 2nd of 3 in the rolling 30 days; the 1st was 2026-09-27).
   - Read back the warmup status: success and the observed throughput wall time vs the limit.
+
+## 2026-10-02 Official nuPlan leaderboard vs our local scores: local navtest INVERTS the official ranking
+- **Warmup:** v2 judge image submitted to **nuplan-warmup**: `323ebec6-1705-4104-be10-4e3ffef3f152`, QUEUED (5/5).
+- **Leaderboard** (Aman pasted 2026-10-02; 80 entries, PCS re-fit):
+  - Our v0.3 entry is now PCS 1284 (rank 20/80; scene 0.8265, spacing 0.234).
+  - Top host (py123d-garage) 1753 (scene 0.8955).
+  - Top eligible: Lucifer AI 1553 (0.879, `routebridge-scale125-20260930`), YAX_NAM 1485, RDY Mobility 1476 (best scene score 0.902 at PCS 1423).
+- **Calibration** (drivers we ran locally that also have official entries):
+
+| Driver | Local mean scene score (shards) | Official scene | Official PCS |
+|---|---|---|---|
+| Alpamayo v0.3 | 0.759 (001), 0.510 (010) | **0.827** | **1284** |
+| go_straight_with_delay_v2 (host) | constvel stand-in 0.578 (001) | 0.799 | 1299 |
+| SimScale DiffusionDrive (host) | 0.853, 0.690 | 0.772 | 1073 |
+| SimScale GTRS (host/Ulsan, several configs) | 0.813, 0.730, 0.886 | 0.526-0.761 | 722-1014 |
+| SimScale LTF (host) | 0.907, 0.700, 0.900 | 0.738 | 1019 |
+| WA-JEPA (`wajepa-s2-20260904`, Lucifer AI, their adapter) | ours: 0.958, 0.729, 0.944 | **0.762** | **1022** |
+
+- **Finding:** locally the NAVSIM-trained family (LTF, DD, GTRS, WA-JEPA) beats Alpamayo by a lot. Officially every one of them is below go-straight, and Alpamayo is above all of them. Public navtest flatters NAVSIM-tuned models.
+  - Likely cause: they are trained/tuned on the NAVSIM benchmark the public scenes come from (the LTF checkpoint is `ltf_sim_navtest`). The private set is new to them; cf. #191.
+- **Consequence:** the projected nuPlan jump from WA-JEPA is NOT supported. The one official WA-JEPA data point (another team's adapter) is PCS 1022 < our 1284. The judge's +0.04 is measured on the same flattering benchmark.
+- **Clue:** Lucifer AI moved from WA-JEPA 0.762 (Sep 10) to 0.879 / 1553 (Sep 30, `routebridge-scale125`). The name suggests a route-signal fix (our known weakness: the route starts 40 m ahead, so the command is ~always STRAIGHT) and some 1.25 scaling. Contents unknown.
+- **Decisions:**
+  - Do not spend the official nuPlan slot on WA-JEPA as is.
+  - Next: route-command fix.
+  - Next: find local conditions that reproduce the official ordering of these six drivers before trusting local gains.
