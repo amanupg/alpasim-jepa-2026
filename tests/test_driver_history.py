@@ -111,3 +111,16 @@ def test_padding_early_in_rollout():
     svc.drive(egodriver_pb2.DriveRequest(session_uuid=sid, time_now_us=0, time_query_us=0), ctx)
     assert len(h.w.seen) == 1 and len(h.w.seen[0].history) == 4
     assert svc._sessions[sid].counters.history_pad == 1
+
+
+def test_route_bridge_rule():
+    import numpy as np
+    from wajepa_challenge.route_bridge import command_from_route_bridge as C
+    straight = np.stack([40 + np.arange(20) * 2.0, np.zeros(20)], 1)
+    assert C(straight).name == "STRAIGHT"
+    s = 40 + np.arange(20) * 2.0                      # gentle left curve, radius 300 m: y(40 m) = 2.7 m
+    curve = np.stack([300 * np.sin(s / 300), 300 * (1 - np.cos(s / 300))], 1)
+    assert C(curve).name == "STRAIGHT"                 # NAVSIM reads 20 m out: 0.7 m
+    lateral = np.stack([np.full(20, 20.0), 8 + np.arange(20) * 2.0], 1)   # route already turned left
+    assert C(lateral).name == "LEFT" and C(lateral * [1, -1]).name == "RIGHT"
+    assert C(np.zeros((0, 2))).name == "UNKNOWN"

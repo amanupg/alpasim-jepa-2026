@@ -27,6 +27,7 @@ import grpc
 
 from .batch_worker import BatchPolicy, BatchWorker
 from .navigation import DriveCommand, command_from_route, command_one_hot
+from .route_bridge import bridge_one_hot
 from .policy import ConstVelPolicy, InferenceInput, Prediction, WaJepaPolicy
 from .preprocessing import (
     CAMERA_IDS, GREY, NUM_HISTORY, PAI_VIEWS, build_ego_status, crop_frac, grey_frame, relative_se2, resize_frame,
@@ -54,6 +55,11 @@ MIN_INFER_INTERVAL_US = int(os.environ.get("WAJEPA_MIN_INFER_INTERVAL_US", "4500
 FRAME_MATCH_TOL_US = 60_000
 # WAJEPA_JUDGE=gtrs keeps the newest raw 1920x1080 CAM_L0/F0/R0 frames for the GTRS judge (judge.py)
 JUDGE = os.environ.get("WAJEPA_JUDGE", "")
+# drive command: organisers (sample rule, first waypoint >= 5 m, |y| > 2 m: reads ~40 m out) or bridge
+# (route_bridge.py: NAVSIM's s = 20 m / 2 m label on the route bridged from the ego)
+COMMAND_RULE = os.environ.get("WAJEPA_COMMAND", "organisers")
+if COMMAND_RULE not in ("organisers", "bridge"):
+    raise ValueError(f"WAJEPA_COMMAND must be organisers or bridge, got {COMMAND_RULE!r}")
 JUDGE_CAMERAS = ("CAM_L0", "CAM_F0", "CAM_R0")
 
 _RUNTIME_WRITE_DIR_DEFAULTS = {
@@ -597,7 +603,7 @@ class NavsimTransfuserDriver(egodriver_pb2_grpc.EgodriverServiceServicer):
         context: grpc.ServicerContext,
     ) -> common_pb2.Empty:
         session = self._get_session(request.session_uuid, context)
-        command = command_from_route(request.route)
+        command = bridge_one_hot(request.route) if COMMAND_RULE == "bridge" else command_from_route(request.route)
         with self._lock:
             if self._sessions.get(request.session_uuid) is session:
                 session.command_one_hot = command
