@@ -129,4 +129,6 @@ python3 $A/src/summarize_run.py $RUN
 [ -n "$SCENES_FROM" ] && python3 $A/src/compare_runs.py $SCENES_FROM $RUN
 echo "driver (pid $DRV) peak GPU memory: $(grep "^$DRV," $RUN/gpu_mem.log | sort -t, -k2 -n | tail -1)"
 grep "inference=\|closed session" $RUN/driver.log | tail -3
+# keep the audit trail, drop the camera JPEG bytes (src/analysis/slim_asl.py; verified before deleting originals)
+apptainer exec -B $A:$A:ro -B $B $SIF env PYTHONDONTWRITEBYTECODE=1 /repo/.venv/bin/python $B/src/analysis/slim_asl.py --delete $RUN | tail -1
 exit $RC
