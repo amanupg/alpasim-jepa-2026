@@ -359,3 +359,22 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - Lucifer AI's 1560 entry (`e61f63b5`) now displays tag `lf-007`. It showed `routebridge-scale125-20260930-ee3099b0` in the 2026-10-02 JSON, so the name-based reading is weaker.
 - Go-straight alone scores 0.799 officially (most private scenes are simple), so route following + safe speed may be the main lever.
 - **Diagnostic queued:** a pure route follower (constant current speed, plan snapped to the route; `WAJEPA_ABLATE=constvel` + `WAJEPA_ROUTE_SNAP=1`) on all 3 shards.
+
+## 2026-10-02/03 Snap + time-scale results (300 scenes) and the public py123d baseline
+| Config (shards 001+010+005) | Score | Offroad | Corridor | Collision | Progress | dist_to_gt |
+|---|---|---|---|---|---|---|
+| WA-JEPA | 0.877 | 0.077 | 0.020 | 0.007 | 0.961 | 1.24 |
+| + judge (R1 m1) | 0.917 | 0.037 | 0.017 | 0.010 | 0.988 | 1.52 |
+| + judge + route snap | **0.923** | 0.030 | 0.013 | 0.013 | 0.989 | 1.38 |
+| route follower (no model) | 0.548 | 0.170 | 0.110 | 0.043 | 0.701 | 1.78 |
+| + time scale 1.25 (any combination) | 0.60-0.67 | 0.09-0.13 | 0.06-0.08 | **0.16-0.21** | 1.09-1.10 | **6.6** |
+
+- Paired: snap vs judge +0.006 [-0.014, +0.026] (neutral locally, fewer offroad/corridor). Time scale -0.21 to -0.33.
+- **Time scale hurts WA-JEPA:** the warp pushes the car ahead of the plan, and WA-JEPA replans from the higher speed, so the speed runs away (rear-end collisions). Dropped for WA-JEPA.
+- Infrastructure: several runs failed because the MTGS renderer took >30 min to start on ins038/039/058/060/061. Launcher timeout raised to 3600 s; failed runs were resubmitted.
+- **Public py123d_garage checkpoint** (`kesai-labs/py123d_garage_pretrained_checkpoints` @ 5516edd, `resnet34_v0.1.0/model_0014.pth`, Apache-2.0, not gated; "the reference starting point for the Alpasim E2E Challenge 2026").
+  - Official entries with this checkpoint: host `014-nuplan-0014-v1` 0.848 / 1484; **YAX_NAM `base0014-v1` 0.848 / 1487**; Lucifer AI (2026-09-24) 0.848 / 1485.
+  - So the public baseline is worth about **PCS 1485**, vs our Alpamayo 1288 and WA-JEPA (Lucifer) 1022.
+  - The host's 0.896 "0062" entries use a private repo (`py123d_garage_dev_pretrained_checkpoints`).
+- **Conclusion for the JEPA question:** on nuPlan the official evidence favours the py123d family over WA-JEPA.
+  - Proposed to Aman: (A) pivot the nuPlan slot work to the py123d base + our levers, keeping JEPA as judge/second opinion if it measurably helps; (B) keep a pure-JEPA research line; (C) both. Awaiting his decision.

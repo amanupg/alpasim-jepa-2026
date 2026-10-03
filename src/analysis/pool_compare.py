@@ -18,8 +18,9 @@ def load(pats):
         if not g: return None
         for r in json.load(open(g[0]))["rollouts"]:
             m = r.get("score_metrics") or {}
-            d[r["clipgt_id"]] = (r["score"], m.get("offroad", 0), m.get("left_corridor_laterally", 0),
-                                 m.get("collision_at_fault", 0), m.get("progress_clipped_rel", 0), m.get("dist_to_gt_trajectory", 0))
+            d[r["clipgt_id"]] = tuple(float(v or 0.0) for v in (
+                r["score"], m.get("offroad"), m.get("left_corridor_laterally"), m.get("collision_at_fault"),
+                m.get("progress_clipped_rel"), m.get("dist_to_gt_trajectory")))
     return d
 R = {k: load(v) for k, v in CONFIGS.items()}
 R = {k: v for k, v in R.items() if v}
