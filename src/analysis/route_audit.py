@@ -26,7 +26,7 @@ async def one(path):
 async def main():
     out = {}
     for run in sys.argv[2:]:
-        for f in sorted(glob.glob(f"{run}/rollouts/*/*/rollout.asl")):
+        for f in sorted(glob.glob(f"{run}/rollouts/*/*/" + os.environ.get("ASL_NAME", "rollout.asl"))):
             scene = f.split("/rollouts/")[1].split("/")[0]
             rows, kinds = await one(f)
             out[scene] = rows
