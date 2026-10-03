@@ -23,7 +23,7 @@ SIF=$A/sandbox/alpasim-base; REPO=$A/external/alpasim
 ROLLOUTS=${ROLLOUTS:-2}; NSCENES=${NSCENES:-100}; DRIVER=${DRIVER:-wajepa}
 NUPLAN_ROOT=${NUPLAN_ROOT:-$A/data/nuplan_track}
 RUN=$B/runs/nuplan_${DRIVER}${TAG:+_$TAG}_$SLURM_JOB_ID; mkdir -p $RUN
-env | grep -E "^WAJEPA_|^A15_|^LTF_|^DIFFUSIONDRIVE_|^GTRS_" | sort > $RUN/variant.env; echo "NUPLAN_ROOT=$NUPLAN_ROOT" >> $RUN/variant.env
+env | grep -E "^WAJEPA_|^A15_|^LTF_|^DIFFUSIONDRIVE_|^GTRS_|^GARAGE_" | sort > $RUN/variant.env; echo "NUPLAN_ROOT=$NUPLAN_ROOT" >> $RUN/variant.env
 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
 PORT_BASE=$((20000 + (SLURM_JOB_ID % 4000) * 10))
 export ALPASIM_DRIVER_HOST=localhost ALPASIM_DRIVER_PORT=$((PORT_BASE + 9)) ALPASIM_NUPLAN_ROOT=$NUPLAN_ROOT
@@ -42,6 +42,16 @@ if [ $DRIVER = a15 ]; then
       PYTHONPATH=$A/envs/overlay_driver:$A/envs/overlay_torchao:$A/src:$SIF/repo/src/grpc \
       $NR/ext/a15env/bin/python -u -m a15_driver.driver > $RUN/driver.log 2>&1 &
   READY="policy ready"
+elif [ $DRIVER = garage ]; then
+# ---- driver: py123d_garage (kesai-labs, Apache-2.0) v0.1.1 with its public checkpoint resnet34_v0.1.0/model_0014.pth
+#      and the nuPlan sensor rig, as in the checkpoint README (official entries with it: 0.848 / PCS ~1485)
+  W=$B/weights/py123d/resnet34_v0.1.0
+  env PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 HOME=$RUN/garage_home OMP_NUM_THREADS=8 \
+      $B/envs/garage/bin/python -m py123d_garage.evaluation.alpasim.evaluate hydra.run.dir=$RUN/garage \
+      policy_config.evaluation_checkpoint_file=$W/${GARAGE_CKPT:-model_0014.pth} \
+      policy_config.evaluation_sensor_rig_file=$W/sensor_rig_0.yaml \
+      host=localhost port=$ALPASIM_DRIVER_PORT device=cuda ${GARAGE_OVERRIDES:-} > $RUN/driver.log 2>&1 &
+  READY="garage driver listening"
 elif [ $DRIVER = image ]; then
 # ---- driver: the submission image itself (apptainer sandbox of the docker image; its own ENV and code)
   IMG=${IMG:-$B/sandbox/wajepa-dev}
