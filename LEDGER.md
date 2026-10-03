@@ -433,3 +433,17 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **1.10** fixes py123d's slowness on many scenes (72 W) but loses badly on curves (offroad).
 - **Next:** warp only near-straight plans (heading change over 4 s < 10 deg, `GARAGE_TS_MAX_TURN_DEG`), at 1.10 and 1.15 (13142131-36).
 - Storage: 394 GB free (93%) after the other agents' cleanups.
+
+## 2026-10-03 py123d + time scale only on near-straight plans (heading change < 10 deg over 4 s)
+| Scale | Shard 001 | Shard 010 | Shard 005 | W / L |
+|---|---|---|---|---|
+| **1.10, straight only** | **+0.012 [+0.007, +0.017]** | -0.010 [-0.036, +0.011] | **+0.029 [+0.013, +0.049]** | **64 / 8** |
+| 1.15, straight only | +0.007 [-0.014, +0.022] | -0.036 [-0.076, -0.000] | +0.017 [-0.015, +0.048] | 63 / 15 |
+
+- The straight-only gate removed most of 1.10's curve losses (shard 010: -0.062 → -0.010) and kept the progress gains.
+- **Current best py123d add-on: 1.10 straight-only** (~+0.01 pooled; same-model comparison, so locally meaningful).
+- **Slot candidate:** py123d 0014 + this add-on (expected ~PCS 1485+, vs our 1288).
+- **Options proposed to Aman for a bigger jump:**
+  1. py123d fine-tune with the public recipe (the host's private fine-tune "0062" reaches 0.896 officially);
+  2. GTRS judge on py123d (it cut offroad for WA-JEPA locally; NAVSIM-family risk);
+  3. JEPA fine-tune pilot (background).
