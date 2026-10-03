@@ -16,7 +16,7 @@ export UV_CACHE_DIR=$B/cache/uv UV_PYTHON_INSTALL_DIR=$B/cache/uvpython PYTHONNO
 G=$B/ext/py123d_garage
 [ -d $G ] || git clone -q --branch v0.1.1 https://github.com/kesai-labs/py123d_garage.git $G
 git -C $G log -1 --format="garage %h %cd"
-$UV venv -q --python 3.12 $B/envs/garage
+$UV venv -q --clear --python 3.12 $B/envs/garage
 $UV pip install -q --python $B/envs/garage/bin/python -r $G/pyproject.toml --extra alpasim
 $UV pip install -q --python $B/envs/garage/bin/python --no-deps $G
 # alpasim_grpc from our own archive of NVlabs/alpasim src/grpc @ 2023534 (container/prepare.sh), never the
