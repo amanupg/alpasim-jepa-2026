@@ -409,3 +409,16 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - py123d locally: closest to the path, slow (progress 0.75), its failures mostly offroad.
 - **Add-on launcher** `src/garage_addons/entry.py`: runs py123d's own driver after wrapping `driver_service._make_plan` (no code changes). First add-on: GARAGE_TIME_SCALE (the organisers' warp).
   - Runs: 1.10 and 1.25 on the 3 shards (13122666-71).
+
+## 2026-10-03 Shared filesystem full; cleanup (Aman approved per item)
+- **2026-10-02 ~22:17 UTC:** /insomnia001 (department quota 5.0 TB) at 100%, 1.3 GB free.
+  - Four py123d time-scale runs died writing output (exit 120): 13122666, 13122669, 13122670, 13122671.
+  - alpasim-jepa held 296 GB, of which runs 173 GB, almost all per-scene `rollout.asl` logs (~27 MB each, ~95% embedded camera JPEGs).
+- **Deleted** (approved): sandboxes wajepa-dev and wajepa-v1 (16.6 GB, superseded by the verified v2), the uploaded v2 image tar (5.3 GB), the apptainer build cache (5.3 GB). Kept the logs (Aman: auditing matters).
+- **Slimmed the logs instead** (`src/analysis/slim_asl.py`, approved after a one-run test): every LogEntry kept in order; only `driver_camera_image.camera_image.image_bytes` emptied.
+  - Verified per file: same entry count and kinds, non-image entries byte-identical, image entries identical apart from the bytes.
+  - The route audit on slim vs original logs gives identical output (same md5).
+  - Result: **5,611 logs, 183.91 GB -> 1.97 GB, 0 failed**; originals deleted after verification. runs/ now 2.7 GB; filesystem 192 GB free (97%).
+  - Lost: re-rendering video / replaying exact pixels (re-run a scene if needed).
+- Sims now slim their own logs after scoring (sim_nuplan/sim_pai end step).
+- Insomnia folders: alpasim, alpasim-jepa, nureasoning, wearable. The `wearable` project (unknown to this thread) is actively ingesting data (jobs fm_ingest, sam3_dl, fmtrk_s21). Aman will brief the other agents.
