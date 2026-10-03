@@ -389,3 +389,23 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
   - Set up in its own venv (setup_garage.sbatch, job 13121248; alpasim_grpc from our own archive, not the read-only checkout); DRIVER=garage in sim_nuplan.sbatch.
   - Then local runs on the 3 shards, calibration, and add-ons (GTRS judge, route snap, time scale).
 - **Track B (background):** WA-JEPA frozen-encoder fine-tune pilot on simulator-rendered scenes; GPU only when track A is idle.
+
+## 2026-10-03 py123d public checkpoint locally: the hypothesis holds (local scene score cannot rank model families)
+- `DRIVER=garage` (py123d_garage v0.1.1, resnet34_v0.1.0/model_0014.pth, sensor_rig_0; jobs 13121307-09, L40S, ~20 min each, Drive 0.02 s):
+  - shard 001: 0.787 (90 passed); shard 010: 0.656 (78); shard 005: 0.841 (91);
+  - progress 0.75-0.83, dist_to_gt 0.62-0.93 m, at-fault collision 0.00-0.01, offroad 0.07-0.18.
+
+| Driver | Official scene | Local 001 / 010 / 005 | Local progress | Local dist_to_gt |
+|---|---|---|---|---|
+| py123d 0014 | **0.848** | 0.787 / 0.656 / 0.841 | 0.75 | **0.76** |
+| Alpamayo v0.3 | 0.827 | 0.759 / 0.510 / - | 0.79 | 1.65 |
+| DiffusionDrive | 0.772 | 0.853 / 0.690 / - | 0.88 | 1.64 |
+| WA-JEPA | 0.762 (Lucifer's adapter) | 0.958 / 0.729 / 0.944 | 0.94 | 1.27 |
+| GTRS | ~0.761 | 0.813 / 0.730 / 0.886 | 1.01 | 3.67 |
+| LTF | 0.738 | 0.907 / 0.700 / 0.900 | 0.89 | 1.46 |
+
+- **The official best of this group (py123d, not navtest-tuned) is near the local bottom; the NAVSIM-tuned models top the local table.** The local scene score is not usable across model families.
+  - Within-family comparisons remain the tool. Local dist_to_gt ranks py123d first in both views (weak signal only).
+- py123d locally: closest to the path, slow (progress 0.75), its failures mostly offroad.
+- **Add-on launcher** `src/garage_addons/entry.py`: runs py123d's own driver after wrapping `driver_service._make_plan` (no code changes). First add-on: GARAGE_TIME_SCALE (the organisers' warp).
+  - Runs: 1.10 and 1.25 on the 3 shards (13122666-71).
