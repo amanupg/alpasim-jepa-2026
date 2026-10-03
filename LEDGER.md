@@ -422,3 +422,14 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
   - Lost: re-rendering video / replaying exact pixels (re-run a scene if needed).
 - Sims now slim their own logs after scoring (sim_nuplan/sim_pai end step).
 - Insomnia folders: alpasim, alpasim-jepa, nureasoning, wearable. The `wearable` project (unknown to this thread) is actively ingesting data (jobs fm_ingest, sam3_dl, fmtrk_s21). Aman will brief the other agents.
+
+## 2026-10-03 py123d + time scale (paired vs py123d baseline per shard)
+| Scale | Shard 001 | Shard 010 | Shard 005 | W / L (all) |
+|---|---|---|---|---|
+| 1.10 | +0.012 [-0.012, +0.035] | -0.062 [-0.110, -0.019] (offroad 0.18 → 0.24) | +0.007 [-0.028, +0.040] | 72 / 16 |
+| 1.25 | -0.118 [-0.183, -0.058] | -0.124 [-0.184, -0.067] | -0.080 [-0.144, -0.020] | 68 / 48 |
+
+- **1.25** adds collisions and drift (dist_to_gt 4-5 m).
+- **1.10** fixes py123d's slowness on many scenes (72 W) but loses badly on curves (offroad).
+- **Next:** warp only near-straight plans (heading change over 4 s < 10 deg, `GARAGE_TS_MAX_TURN_DEG`), at 1.10 and 1.15 (13142131-36).
+- Storage: 394 GB free (93%) after the other agents' cleanups.
