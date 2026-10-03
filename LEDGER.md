@@ -378,3 +378,14 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
   - The host's 0.896 "0062" entries use a private repo (`py123d_garage_dev_pretrained_checkpoints`).
 - **Conclusion for the JEPA question:** on nuPlan the official evidence favours the py123d family over WA-JEPA.
   - Proposed to Aman: (A) pivot the nuPlan slot work to the py123d base + our levers, keeping JEPA as judge/second opinion if it measurably helps; (B) keep a pure-JEPA research line; (C) both. Awaiting his decision.
+
+## 2026-10-03 Plan C (Aman: do both)
+- **Why local != official, working hypothesis:** public navtest is the NAVSIM benchmark these models were tuned/selected on. Some were trained on simulated copies of navtest (`ltf_sim_navtest`). The private set is a fresh exam.
+  - Alpamayo (never tuned on navtest) goes up officially (0.759 → 0.827); the NAVSIM-tuned family goes down to below go-straight.
+  - **Test:** py123d's public checkpoint was trained on nuPlan train/val (+PAI), not navtest, and scores 0.848 officially. If the hypothesis holds, its local score should not tower over the others the way LTF's does.
+- **What local evaluation is good for:** comparing variants of one model (shared bias largely cancels). It is not trusted for ranking model families against each other; calibration against the 6-7 drivers with official scores decides how far it can be used.
+  - Container names are hints only. The "0014" link is supported by the release notes and three identical official scores.
+- **Track A (slot):** py123d_garage v0.1.1 + public resnet34_v0.1.0/model_0014.pth (route-conditioned: target point 45 m along the route; 3 cameras stitched 1024x256).
+  - Set up in its own venv (setup_garage.sbatch, job 13121248; alpasim_grpc from our own archive, not the read-only checkout); DRIVER=garage in sim_nuplan.sbatch.
+  - Then local runs on the 3 shards, calibration, and add-ons (GTRS judge, route snap, time scale).
+- **Track B (background):** WA-JEPA frozen-encoder fine-tune pilot on simulator-rendered scenes; GPU only when track A is idle.
