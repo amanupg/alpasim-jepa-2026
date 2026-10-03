@@ -47,7 +47,7 @@ elif [ $DRIVER = garage ]; then
 #      and the nuPlan sensor rig, as in the checkpoint README (official entries with it: 0.848 / PCS ~1485)
   W=$B/weights/py123d/resnet34_v0.1.0
   env PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 HOME=$RUN/garage_home OMP_NUM_THREADS=8 \
-      $B/envs/garage/bin/python -m py123d_garage.evaluation.alpasim.evaluate hydra.run.dir=$RUN/garage \
+      PYTHONPATH=$B/src $B/envs/garage/bin/python -m garage_addons.entry hydra.run.dir=$RUN/garage \
       policy_config.evaluation_checkpoint_file=$W/${GARAGE_CKPT:-model_0014.pth} \
       policy_config.evaluation_sensor_rig_file=$W/sensor_rig_0.yaml \
       host=localhost port=$ALPASIM_DRIVER_PORT device=cuda ${GARAGE_OVERRIDES:-} > $RUN/driver.log 2>&1 &
