@@ -447,3 +447,10 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
   1. py123d fine-tune with the public recipe (the host's private fine-tune "0062" reaches 0.896 officially);
   2. GTRS judge on py123d (it cut offroad for WA-JEPA locally; NAVSIM-family risk);
   3. JEPA fine-tune pilot (background).
+
+## 2026-10-03 October slot plan (Aman)
+- **Slot 1:** nuPlan = WA-JEPA + GTRS judge (the verified v2 image, digest `sha256:dde3c672…`), to get WA-JEPA's real official number with our adapter. Tag **`v4`**.
+- **Slot 2:** PAI = the main line's best (its call).
+- **Slot 3:** the track with the better chance to win, decided on the official results.
+  - If WA-JEPA ends < ~1485 and nuPlan gets slot 3, use py123d + straight-road speed-up (image being prepared now).
+- **Tags:** neutral version labels only (`v4`, `v5`, …); the leaderboard shows tags publicly (memory: neutral-image-tags).
