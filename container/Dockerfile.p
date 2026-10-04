@@ -17,7 +17,7 @@ RUN apt-get update \
 
 RUN python3.12 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:${PATH}" UV_LINK_MODE=copy
-COPY --from=ghcr.io/astral-sh/uv:0.8 /uv /usr/local/bin/uv
+RUN /opt/venv/bin/pip install --no-cache-dir uv==0.8.24   # py123d copies uv 0.8 from ghcr.io; PyPI avoids that registry
 
 COPY pyproject.toml /opt/py123d-garage/pyproject.toml
 RUN uv pip install --python /opt/venv/bin/python -r /opt/py123d-garage/pyproject.toml --extra alpasim
