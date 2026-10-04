@@ -52,6 +52,14 @@ elif [ $DRIVER = garage ]; then
       policy_config.evaluation_sensor_rig_file=$W/sensor_rig_0.yaml \
       host=localhost port=$ALPASIM_DRIVER_PORT device=cuda ${GARAGE_OVERRIDES:-} > $RUN/driver.log 2>&1 &
   READY="garage driver listening"
+elif [ $DRIVER = imagep ]; then
+# ---- driver: candidate P submission image (py123d + add-on), its own ENTRYPOINT command; HOME as in the image
+  IMG=${IMG:-$B/sandbox/p}
+  apptainer exec --nv --cleanenv --writable-tmpfs --no-home \
+      --env ALPASIM_DRIVER_HOST=localhost,ALPASIM_DRIVER_PORT=$ALPASIM_DRIVER_PORT \
+      $IMG sh -c 'export HOME=/tmp; exec python -m garage_addons.entry ${PY123D_GARAGE_CONFIG} host=localhost port=$ALPASIM_DRIVER_PORT' \
+      > $RUN/driver.log 2>&1 &
+  READY="garage driver listening"
 elif [ $DRIVER = image ]; then
 # ---- driver: the submission image itself (apptainer sandbox of the docker image; its own ENV and code)
   IMG=${IMG:-$B/sandbox/wajepa-dev}
