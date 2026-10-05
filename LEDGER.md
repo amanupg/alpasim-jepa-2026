@@ -454,3 +454,59 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Slot 3:** the track with the better chance to win, decided on the official results.
   - If WA-JEPA ends < ~1485 and nuPlan gets slot 3, use py123d + straight-road speed-up (image being prepared now).
 - **Tags:** neutral version labels only (`v4`, `v5`, …); the leaderboard shows tags publicly (memory: neutral-image-tags).
+
+## 2026-10-03/04 GTRS judge on py123d (GARAGE_JUDGE=gtrs, R=1 m, margin 1, organisers' command)
+- Code: `src/garage_addons/entry.py` (wraps the garage driver: caches raw L0/F0/R0 1080p frames and egomotion, judges py123d's plan with `wajepa_challenge.judge.GtrsJudge`, then the time warp runs as before). Built in the fork session, continued here.
+- Smoke run 13154156, shard 001: 1000 judge calls, no errors; GTRS path used in 306 (31%).
+  - **+0.031 [90% +0.002, +0.065]** vs py123d base (0.818 vs 0.787), offroad 0.08 → 0.04, collisions 0.00, progress 0.76 vs 0.75.
+  - But **W8 / L15**: the gain comes from a few big offroad saves, with more small losses. Not trusted until shards 010 and 005.
+- Queued: judge on 010/005 (13157459/60), judge + 1.10 straight-only on 001/010/005 (13157461-63).
+- Storage note: /insomnia001 now shows 1.7 PB with 496 TB free (filesystem expanded since the cleanup).
+- **All 3 shards (paired vs py123d base, 300 scenes):**
+
+| Config | Pooled diff [90%] | W / L | Per shard 001 / 010 / 005 | Offroad | Collisions |
+|---|---|---|---|---|---|
+| base | | | 0.787 / 0.656 / 0.841 | 0.107 | 0.003 |
+| judge | **+0.016 [-0.000, +0.033]** | 22 / 39 | +0.031 / +0.010 / +0.005 | 0.077 | 0.003 |
+| judge + 1.10 straight-only | +0.014 [-0.006, +0.036] | 59 / 30 | +0.047 / -0.006 / +0.003 | 0.087 | 0.010 |
+| 1.10 straight-only (earlier) | +0.010 [-0.000, +0.020] | 64 / 8 | +0.012 / -0.010 / +0.029 | 0.110 | 0.003 |
+
+- The judge's profile: it rescues failing scenes (9 wins > 0.5, 1 loss > 0.5; nonzero-score scenes 259 → 267) and pays with many small progress losses (39 losses totalling -4.4, vs 22 wins totalling +9.0).
+- Judge + warp is not additive and triples collisions; likely the warp applied to substituted GTRS paths.
+- Queued (13158677-82): judge + 1.10 straight-only with no warp on judged plans (`GARAGE_TS_SKIP_JUDGED=1`, new), and judge with margin 2 (fewer, more confident swaps).
+- Caveat: the judge is NAVSIM-trained (navhard). Cross-family transfer to the official score is unknown; the v4 WA-JEPA + judge official result will be the first evidence.
+
+## 2026-10-04 Judge margin and warp-skip (paired vs py123d base, 300 scenes)
+| Config | Pooled diff [90%] | W / L | Big W / L (>0.5) | Per shard 001 / 010 / 005 | Offroad | Collisions |
+|---|---|---|---|---|---|---|
+| judge m1 | +0.016 [-0.000, +0.033] | 22 / 39 | 9 / 1 | +0.031 / +0.010 / +0.005 | 0.077 | 0.003 |
+| **judge m2** | **+0.027 [+0.011, +0.044]** | 20 / 14 | 10 / 1 | +0.037 / +0.017 / +0.028 | 0.073 | 0.003 |
+| judge m1 + 1.10 straight-only | +0.014 [-0.006, +0.036] | 59 / 30 | 9 / 6 | +0.047 / -0.006 / +0.003 | 0.087 | 0.010 |
+| judge m1 + 1.10 straight-only, skip judged | +0.023 [+0.004, +0.042] | 60 / 27 | 9 / 3 | +0.046 / +0.002 / +0.021 | 0.083 | 0.003 |
+
+- Margin 2 keeps the rescues and drops most of the small losses: the best and the only one positive on every shard.
+- Skipping the warp on judged plans removes the extra collisions (0.010 → 0.003).
+- Queued (13159124-29): judge m2 + warp skip-judged, and judge m3.
+- **Results (13159124-29):**
+  - judge m3: +0.025 [+0.011, +0.040], W13 / L6, big W8 / L0, per shard +0.027 / +0.020 / +0.028.
+  - **judge m2 + 1.10 straight-only skip-judged: +0.033 [+0.015, +0.052]**, W69 / L18, big W10 / L3, per shard +0.049 / +0.007 / +0.044, collisions 0.003. **Best so far.**
+- m2 and m3 are a plateau (not a knife-edge setting).
+- Queued (13159172-77): a rerun of the py123d base on all 3 shards (measures run-to-run noise, never measured for py123d), and m3 + warp skip-judged.
+- **Results (13159172-77):**
+  - judge m3 + warp skip-judged: +0.032 [+0.015, +0.049], W70 / L12, big W8 / L2, per shard +0.038 / +0.010 / +0.047.
+  - **py123d base rerun: identical on all 300 scenes** (bit-for-bit scene scores, different nodes). The simulator is deterministic for this driver, so every paired difference above is caused by the add-on, not run noise. The remaining uncertainty is which scenes we sampled (the bootstrap interval) and transfer to the official score.
+- About 8 settings were tried on these 300 scenes, so the best one is mildly overfit. Held-out check: fetching asset part 013 (~32 GB, public, fetch job 13159236), scenes = the new assets only. It runs base, judge m2, m2 + warp skip, m3 + warp skip, warp alone.
+
+## 2026-10-04 Held-out check on fresh shard 013 (100 scenes, logs 2021-09-29 veh-28 and 2021-10-06 veh-52, never used for tuning)
+| Config | Shard 013 diff [90%] | W / L | Offroad | Collisions |
+|---|---|---|---|---|
+| base | 0.686 | | 0.16 | 0.04 |
+| judge m2 | +0.046 [+0.017, +0.082] | 8 / 2 | 0.12 | 0.03 |
+| **judge m2 + 1.10 straight-only skip-judged** | **+0.049 [+0.011, +0.092]** | 20 / 4 | 0.13 | 0.02 |
+| **judge m3 + 1.10 straight-only skip-judged** | **+0.049 [+0.011, +0.092]** | 20 / 4 | 0.13 | 0.02 |
+| 1.10 straight-only | +0.004 [-0.018, +0.026] | 16 / 3 | 0.17 | 0.03 |
+
+- **The gain holds on unseen scenes** (larger than on the tuning shards). m2 and m3 differ (169 vs 129 swaps; 98/100 scenes identical), same mean here.
+- Over all 400 scenes: m2 + skip ≈ +0.037, m3 + skip ≈ +0.036.
+- **Pick: judge m3 + 1.10 straight-only skip-judged.** It matches m2 with ~25% fewer swaps and fewer losses on the tuning shards (12 vs 18). Fewer interventions mean less exposure to the open question of whether the NAVSIM-trained judge transfers to the official score.
+- Settings: `GARAGE_JUDGE=gtrs GARAGE_JUDGE_MARGIN=3 GARAGE_JUDGE_RADIUS=1 GARAGE_TIME_SCALE=1.10 GARAGE_TS_MAX_TURN_DEG=10 GARAGE_TS_SKIP_JUDGED=1`.
