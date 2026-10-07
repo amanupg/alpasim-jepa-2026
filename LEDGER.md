@@ -510,3 +510,19 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - Over all 400 scenes: m2 + skip ≈ +0.037, m3 + skip ≈ +0.036.
 - **Pick: judge m3 + 1.10 straight-only skip-judged.** It matches m2 with ~25% fewer swaps and fewer losses on the tuning shards (12 vs 18). Fewer interventions mean less exposure to the open question of whether the NAVSIM-trained judge transfers to the official score.
 - Settings: `GARAGE_JUDGE=gtrs GARAGE_JUDGE_MARGIN=3 GARAGE_JUDGE_RADIUS=1 GARAGE_TIME_SCALE=1.10 GARAGE_TS_MAX_TURN_DEG=10 GARAGE_TS_SKIP_JUDGED=1`.
+
+## 2026-10-07 Aman: the nuPlan entry may be our only shot
+- Undecided whether nuPlan or PAI gets 2 of October's 3 slots. If nuPlan gets 1, Aman submits in the last week of October; if 2, the first around mid-October.
+- **Rule from now:** keep improving; adopt a change only if it is positive on the 300 tuning scenes AND on held-out scenes never used for choosing. The simulator is deterministic, so the noise is which scenes we sampled: grow the held-out pool. Shard 013 was used once (to pick margin 3), so new held-out parts 007 and 011 are being fetched (13244453 and a follow-up).
+- py123d_garage licence re-checked: GPL-3.0 was added on 2026-08-24 but replaced by Apache-2.0 at v0.1.0; v0.1.1 (ours) is Apache-2.0. No newer checkpoint or release since 2026-09-10.
+
+### The host's 0.896 "0062" checkpoints: what they probably are
+- The checkpoint README documents fine-tuning: nuPlan posttraining (`scripts/training/nuplan/latent_transfuser/posttrain.sh`) from `model_0014.pth`.
+- That script's own default init is `pretrain_latent_transfuser_nuplan/.../model_0062.pth`, and the nuPlan-only preset `ltf_nuplan_trainval` has `max_epochs=63` (the public mixed checkpoint: 15).
+- So the host's `nuplan-0062` entries (0.896 vs 0.848 for `nuplan-0014`) are most likely the **nuPlan-only recipe at ~4x the epochs**. This is an inference from names and configs, not a confirmed fact.
+- That makes py123d training the biggest lever left, and it would stack with the add-ons. Storage no longer limits it (493 TB free). Data: `kesai-labs/nuplan`, public, not gated, nuPlan (nuScenes) non-commercial terms. Train/val only; `nuplan_test` holds navtest, which our local scenes come from, so it is never used.
+- **Measuring the cost first** (small jobs): `cluster/py123d_data.sbatch` fetches 8 train + 2 val logs (3 front cameras + lidar + metadata) and builds the latent TransFuser cache, timing both (13244241). `cluster/py123d_train.sbatch` (posttrain from 0014, nuPlan preset, W&B off) will time training steps on that cache.
+- Cluster: jobs landing on ins095, ins040 and ins084 failed instantly (exit 0:53 / NODE_FAIL) while the same job ran fine elsewhere; those nodes are excluded for now.
+
+### Add-on variants queued on the tuning shards (13244455-60)
+- Best (judge m3 + 1.10 straight-only skip-judged) with the judge's drive command from the route bridge instead of the organisers' rule; and with judge radius 2 m.
