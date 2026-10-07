@@ -526,3 +526,10 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 
 ### Add-on variants queued on the tuning shards (13244455-60)
 - Best (judge m3 + 1.10 straight-only skip-judged) with the judge's drive command from the route bridge instead of the organisers' rule; and with judge radius 2 m.
+
+## 2026-10-07 Aman: keep the JEPA track alive (do not put everything on py123d)
+- Upstream check: WA-JEPA code still @ bec2966 (2026-09-04), weights @ 15c0770e (2026-08-21); AD-E2E-JEPA repo still README only. Nothing new to adopt.
+- **JEPA track plan:**
+  1. **Now:** WA-JEPA judge margin 2 and 3 (R=1) on the tuning shards (13244639-44). Only margin 1 was ever tried at R=1, and on py123d margins 2-3 clearly beat margin 1. Held-out confirmation follows on parts 007/011.
+  2. **Route conditioning (the main JEPA research item):** WA-JEPA ignores the route command, while py123d (route-conditioned, 45 m target point) scores much higher officially. Pilot: keep the JEPA encoder frozen and fine-tune the planning head with a route target-point input on nuPlan train/val in 123D format, the same data being fetched for py123d (shared download). Needs a 123D → WA-JEPA input adapter; scoped after the py123d data probe shows data cost.
+  3. Official evidence: if nuPlan gets 2 slots, the WA-JEPA entry (`v4`) is the JEPA test on the real benchmark.
