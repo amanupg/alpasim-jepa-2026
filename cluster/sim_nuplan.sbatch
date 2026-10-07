@@ -2,10 +2,11 @@
 #SBATCH -A edu
 #SBATCH -p short,burst
 #SBATCH -J aj_nup
-#SBATCH --gres=gpu:l40s:1   # nuPlan MTGS renderer pins TORCH_CUDA_ARCH_LIST=8.9;9.0 (L40S/H100)
+#SBATCH --gres=gpu:1
+#SBATCH --constraint=l40s|l40|h100   # nuPlan MTGS renderer pins TORCH_CUDA_ARCH_LIST=8.9;9.0 (L40S/L40/H100)
 #SBATCH -c 12
 #SBATCH --mem=120G
-#SBATCH -t 03:00:00
+#SBATCH -t 01:15:00   # runs take ~20-30 min; a short limit lets the scheduler backfill
 #SBATCH -o /insomnia001/depts/edu/users/au2327/alpasim-jepa/logs/sim_nuplan_%j.out
 # Closed-loop nuPlan evaluation of the WA-JEPA driver on Insomnia.
 # The AlpaSim tree ($A) is READ-ONLY here: its simulator sandboxes, nuPlan data, wizard and summary

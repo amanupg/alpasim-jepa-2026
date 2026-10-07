@@ -2,7 +2,7 @@
 #SBATCH -A edu
 #SBATCH -p short,burst
 #SBATCH -J aj_pytrain
-#SBATCH --gres=gpu:l40s:1
+#SBATCH --gres=gpu:A6000:1   # training needs no renderer arch; A6000s are the most available
 #SBATCH -c 16
 #SBATCH --mem=120G
 #SBATCH -t 04:00:00
@@ -23,7 +23,7 @@ INIT=${INIT:-$B/weights/py123d/resnet34_v0.1.0/model_0014.pth}
 RUN=$B/runs/py123d_train${TAG:+_$TAG}_$SLURM_JOB_ID
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 cd $B/ext/py123d_garage
-srun --kill-on-bad-exit=1 -n $GPUS $B/envs/garage/bin/python -m py123d_garage.training.train \
+srun --kill-on-bad-exit=1 -n $GPUS $B/envs/garage-train/bin/python -m py123d_garage.training.train \
   training=py123d_garage.config.presets.python.training.latent_transfuser:ltf_nuplan_trainval \
   compile_mode=${COMPILE:-max-autotune} \
   hydra.run.dir=$RUN \

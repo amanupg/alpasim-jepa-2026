@@ -15,7 +15,7 @@ set -eo pipefail
 B=/insomnia001/depts/edu/users/au2327/alpasim-jepa
 export PY123D_GARAGE_DATA_ROOT=$B/data/py123d PYTHONNOUSERSITE=1 HF_HUB_DISABLE_TELEMETRY=1
 D=$PY123D_GARAGE_DATA_ROOT/nuplan/123D; mkdir -p $D
-PY=$B/envs/garage/bin/python; HF=$B/envs/garage/bin/hf
+PY=$B/envs/garage-train/bin/python; HF=$B/envs/garage/bin/hf
 NTRAIN=${NTRAIN:-8}; NVAL=${NVAL:-2}; SKIP=${SKIP:-0}; STEP=${STEP:-both}
 cd $D
 if [ $STEP != cache ]; then
