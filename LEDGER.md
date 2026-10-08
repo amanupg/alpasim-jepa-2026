@@ -550,3 +550,12 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - Held-out pool now: 013 (100 scenes, used once), 007 (61 new scenes), 011 (100 new scenes). 007/011 baselines + current bests for py123d and WA-JEPA queued (13249555-62).
 - Queue: our fair share is the lowest in `edu`, so sims ran one at a time with ~6 h estimated gaps. Fixed by allowing L40 and H100 (both in the renderer's 8.9/9.0 arch list) and a 1 h 15 min limit (runs take 20-35 min), which lets the scheduler backfill. `cluster/sim_nuplan.sbatch` now defaults to this.
 - `src/analysis/report.py`: every config vs its model's baseline, tuning and held-out groups separately.
+
+## 2026-10-07 py123d training cost, measured (10 nuPlan logs)
+- **Download:** 10 logs (3 front cams + lidar + metadata) 21.7 GB in 893 s, about 24 MB/s unauthenticated, one stream. Per log: cameras ~0.45 GB each, lidar 0.75 GB (35%), metadata ~0.04 GB.
+- **Cache:** 390 s on 16 CPUs for 10 logs; 2.4 GB (train 1.9 GB, val 0.53 GB). Needs a separate env (`envs/garage-train`, extra "train": lightning 2.6.6, torch 2.8.0+cu128); the eval env stays unchanged.
+- **Samples:** 1,777 training samples from 9 logs with scenes (1 s anchor spacing), about 200 per log, so the full train+val (~1,310 sensor logs) is roughly 230-260k samples per epoch (~3.9k steps at batch 64).
+- **Speed:** one RTX A6000, batch 64, bf16, `max-autotune`: ~225 samples/s once compiled (compile ~11 min; Triton shared-memory fallbacks on A6000 are harmless). So **~20-30 min per full epoch on one A6000.**
+- **Schedule:** cosine warm restarts, T_0 = 1 epoch, T_mult = 2, so cycles end at epochs 1, 3, 7, 15, 31, 63. The public checkpoint is the end of cycle 4 (15); the nuPlan recipe runs to the end of cycle 6 (63), consistent with the host's "0062".
+- **Fixes:** srun refused to start after an in-place job edit (SLURM_TRES_PER_TASK vs SLURM_CPUS_PER_TASK; unset it). The run finished training but never exited (idle 1 h 45 min): `py123d_train.sbatch` now stops it after "Training finished". `STAGE=pre|post` added.
+- **No-lidar check** (13256936): 2 more logs without lidar and with the rear camera (WA-JEPA needs it), then the cache, to confirm the latent TransFuser needs no lidar (saves ~1 TB).

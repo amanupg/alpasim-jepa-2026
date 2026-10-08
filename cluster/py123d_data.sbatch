@@ -10,6 +10,8 @@
 # (3 front cameras + lidar + metadata, as the py123d docs) and build the latent TransFuser feature cache.
 # Only nuplan_train / nuplan_val: nuplan_test holds navtest, which our local evaluation scenes come from.
 #   NTRAIN, NVAL: how many logs of each split (first N in index order after SKIP); STEP=fetch|cache|both
+#   NO_LIDAR=1: skip lidar.lidar_merged (the latent TransFuser uses no lidar); B0=1: also fetch the rear camera
+#   (WA-JEPA uses l0, f0, r0, b0)
 source /etc/profile
 set -eo pipefail
 B=/insomnia001/depts/edu/users/au2327/alpasim-jepa
@@ -30,7 +32,8 @@ for split, n in (("nuplan_train", ntr), ("nuplan_val", nva)):
 EOF
   echo "$(date -u +%T) fetching $(wc -l < want.txt) logs"; t0=$(date +%s)
   ARGS=(); while read -r w; do ARGS+=(--include "$w"); done < want.txt     # the hf CLI takes one pattern per flag
-  for c in b0 l1 l2 r1 r2; do ARGS+=(--exclude "*/camera.pcam_$c.arrow"); done
+  for c in l1 l2 r1 r2 $([ "${B0:-0}" = 1 ] || echo b0); do ARGS+=(--exclude "*/camera.pcam_$c.arrow"); done
+  [ "${NO_LIDAR:-0}" = 1 ] && ARGS+=(--exclude "*/lidar.lidar_merged.arrow")
   $HF download kesai-labs/nuplan --repo-type dataset --local-dir . "${ARGS[@]}" > /dev/null
   t1=$(date +%s); GB=$(du -sb logs | awk '{print $1/1e9}')
   echo "fetch: $((t1-t0)) s, logs dir now $GB GB, $(ls logs/nuplan_train | wc -l) train + $(ls logs/nuplan_val 2>/dev/null | wc -l) val logs"
