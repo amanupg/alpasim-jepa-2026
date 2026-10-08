@@ -576,3 +576,9 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 | m3 | +0.022 [+0.002, +0.044] | rejected |
 - The WA-JEPA judge holds on held-out scenes. m2 vs m1 is within noise on tuning; held-out decides (13258228-32 incl. the WA-JEPA 013 baseline).
 - Queue fix confirmed: all 23 sims of the evening ran within ~3 h.
+
+## 2026-10-07 Training pipeline queued (Aman approved the full plan: download, cache, py123d A + B, WA-JEPA pilot)
+- **nuPlan 123D download** (13256952, 12 tasks): all 1,310 train + val sensor logs, cameras l0/f0/r0/b0, no lidar; ~80 MB/s total, ~9 h. The latent TransFuser needs no lidar (no-lidar logs passed py123d's filter and cached).
+- **WA-JEPA route pilot, verified** (`src/wajepa_route/verify.py`, 6 samples): cached-feature inference matches `predict_trajectory` exactly (max diff 0.0000 m); the zero-init target-point encoder changes nothing (0.000000); trainable = 58.6M of 788M (trajectory stream + target-point encoder); gradients reach only those. Sample builder checked visually (camera order l0, f0, r0, b0; RGB).
+- **Chained:** py123d cache (13256971, 16 shards) → fine-tune A (13260084 + resume 13260085: from public 0014, nuPlan only, 15 epochs, 1 A6000, keeps epochs 3/7/15). WA-JEPA feature cache (val 13260076, train 13260077; anchors every 4 s, ~12.6 MB/sample) → pilot runs **route** (13260079) and **control without the route input** (13260080), so the route effect is separated from the effect of fine-tuning alone.
+- Recipe B (py123d from scratch, 63 + 63 epochs, multi-GPU) waits for the 2-GPU probe (13256973).
