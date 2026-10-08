@@ -559,3 +559,20 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Schedule:** cosine warm restarts, T_0 = 1 epoch, T_mult = 2, so cycles end at epochs 1, 3, 7, 15, 31, 63. The public checkpoint is the end of cycle 4 (15); the nuPlan recipe runs to the end of cycle 6 (63), consistent with the host's "0062".
 - **Fixes:** srun refused to start after an in-place job edit (SLURM_TRES_PER_TASK vs SLURM_CPUS_PER_TASK; unset it). The run finished training but never exited (idle 1 h 45 min): `py123d_train.sbatch` now stops it after "Training finished". `STAGE=pre|post` added.
 - **No-lidar check** (13256936): 2 more logs without lidar and with the rear camera (WA-JEPA needs it), then the cache, to confirm the latent TransFuser needs no lidar (saves ~1 TB).
+
+## 2026-10-07 Held-out results (parts 013/007/011, 261 scenes) and a new py123d best
+| py123d config (vs py123d base, paired) | Tuning 300 | Held-out 261 | Held-out per part 013 / 007 / 011 |
+|---|---|---|---|
+| judge m3 R1 + 1.10 straight-only skip-judged (previous best) | +0.032 [+0.016, +0.049] | +0.026 [+0.008, +0.045], W51 / L13 | +0.049 / +0.032 / -0.000 |
+| **judge m3 R2 + same warp** | **+0.043 [+0.020, +0.066]** | **+0.058 [+0.034, +0.082], W61 / L15** | +0.087 / +0.067 / +0.023 |
+- **R2 vs R1 paired:** tuning +0.011 [-0.007, +0.029]; held-out **+0.032 [+0.011, +0.053]**, 11 big wins / 1 big loss, no new collisions. **Adopted: R2 is the new py123d recipe.** Held-out collisions 0.019 vs base 0.027.
+- Parts 013/007/011 have now been used to choose R2. Further choices need fresh scenes: parts 003 and 014 are being fetched (13258237-38, `cluster/fetch_heldout.sbatch`).
+- Queued on tuning: R3 (13258225-27).
+
+| WA-JEPA judge (R1) vs WA-JEPA base | Tuning 300 | Held-out |
+|---|---|---|
+| m1 (the v4 image) | +0.040 [+0.020, +0.063], W18 / L8 | +0.029 [+0.008, +0.053] on 007/011 (161), W6 / L6 |
+| m2 | +0.043 [+0.023, +0.064], W22 / L5 | queued (013/007/011) |
+| m3 | +0.022 [+0.002, +0.044] | rejected |
+- The WA-JEPA judge holds on held-out scenes. m2 vs m1 is within noise on tuning; held-out decides (13258228-32 incl. the WA-JEPA 013 baseline).
+- Queue fix confirmed: all 23 sims of the evening ran within ~3 h.
