@@ -540,3 +540,13 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Least-change design:** `ego_status_dim` 8 → 10 with the route target point (x, y); copy the old 8 input columns and zero-init the 2 new ones, so the model starts out exactly as now. (Alternative: a separate target-point encoder with a zero-init output, added as a 4th input to `traj_fusion`.) Our adapter needs `ego_status_dim` and a non-strict load (policy.py:95-105).
 - **Cheap training:** with the encoder and projector frozen, `context_scene` [4096, 512] (4 MiB bf16 per sample) can be cached exactly (inference and training both mask the full future; ViT has no dropout). Train only trajectory-stream parameters (`noisy_traj_proj`, `history_traj_encoder`, `ego_status_encoder`, `traj_fusion`, `traj_out`, per-block `traj_*`): context/scene see the trajectory K/V detached, so no backward through the frozen streams. The scene stream still runs forward (needs noisy future-scene inputs: cache EMA future tokens, 8 MiB per sample, or another scheme). Custom code, not in the repo.
 - **Data implication:** WA-JEPA uses 4 cameras (l0, f0, r0, **b0**) at 256x512 with 4 history frames. The py123d download excludes b0, so the full nuPlan fetch must include `camera.pcam_b0` for the JEPA pilot (shared data, one download).
+
+## 2026-10-07 py123d add-on variants on the tuning shards (13244455-60)
+| Variant of best (judge m3 + 1.10 straight-only skip-judged) | vs base | vs best, paired [90%] | W / L vs best |
+|---|---|---|---|
+| judge command from the route bridge | +0.029 | -0.003 [-0.012, +0.007] | 22 / 22 |
+| judge radius 2 m | +0.043 (all 3 shards positive; offroad 0.087 → 0.060; collisions 1 → 2 of 300) | +0.011 [-0.007, +0.029] | 32 / 25 |
+- Bridge: rejected. Radius 2: not clearly better than best (interval spans zero, one new collision). Sent to held-out 013/007/011 (bestr2 runs) before any decision.
+- Held-out pool now: 013 (100 scenes, used once), 007 (61 new scenes), 011 (100 new scenes). 007/011 baselines + current bests for py123d and WA-JEPA queued (13249555-62).
+- Queue: our fair share is the lowest in `edu`, so sims ran one at a time with ~6 h estimated gaps. Fixed by allowing L40 and H100 (both in the renderer's 8.9/9.0 arch list) and a 1 h 15 min limit (runs take 20-35 min), which lets the scheduler backfill. `cluster/sim_nuplan.sbatch` now defaults to this.
+- `src/analysis/report.py`: every config vs its model's baseline, tuning and held-out groups separately.
