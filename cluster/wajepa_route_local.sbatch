@@ -49,7 +49,8 @@ fetch() {   # $1 = batch line -> downloads into $D/logs
 }
 encode() {  # $1 = batch line, $2 = batch index
   for split in nuplan_val nuplan_train; do
-    logs=$(for x in $1; do [[ $x == $split/* ]] && echo ${x#*/}; done | paste -sd, -)
+    # (an if, not "test && echo": a false last test would make the loop fail and set -e end the job silently)
+    logs=$(for x in $1; do if [[ $x == $split/* ]]; then echo ${x#*/}; fi; done | paste -sd, -)
     [ -z "$logs" ] && continue
     (cd $B/ext/py123d_garage && HF_HUB_OFFLINE=1 $PY -m wajepa_route.cache_features --data-root $D --split $split --out $F \
       --repo $B/ext/WA-JEPA --config $B/ext/WA-JEPA/configs/wa_jepa_navsim_epdms.yaml \

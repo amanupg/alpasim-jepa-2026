@@ -36,6 +36,9 @@ df = pd.read_parquet("index.parquet"); df = df[df.has_sensors & df.split.isin(["
 df = df.sort_values(["split", "log_name"])
 step = max(1, len(df) // n)
 pick = [f"{s}/{x}" for s, x in zip(df.split, df.log_name)][::step][:n]
+# the preset has a train and a val source: the first cached batch must hold logs of both splits
+first_val = next(i for i, p in enumerate(pick) if p.startswith("nuplan_val/"))
+pick.insert(0, pick.pop(first_val))
 for i in range(0, len(pick), bl):
     print(" ".join(pick[i:i + bl]))
 EOF
