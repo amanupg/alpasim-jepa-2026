@@ -93,7 +93,7 @@ srun --kill-on-bad-exit=1 -n $GPUS --cpus-per-task=${SLURM_CPUS_PER_TASK:-24} $P
   ${TRAIN_OVERRIDES:-} > $RUN/train.log 2>&1 &
 PID=$!
 while kill -0 $PID 2>/dev/null; do
-  if grep -q "Training finished after" $RUN/train.log; then sleep 120; kill $PID 2>/dev/null; sleep 30; kill -9 $PID 2>/dev/null; break; fi
+  if grep -q "Training finished after" $RUN/train.log; then sleep 120; kill $PID 2>/dev/null || true; sleep 30; kill -9 $PID 2>/dev/null || true; break; fi
   sleep 60
 done
 wait $PID 2>/dev/null || true

@@ -46,7 +46,7 @@ PID=$!
 # stop once train.py reports the end, after a grace period for the last checkpoint write.
 LOG=/insomnia001/depts/edu/users/au2327/alpasim-jepa/logs/py123d_train_$SLURM_JOB_ID.out
 while kill -0 $PID 2>/dev/null; do
-  if grep -q "Training finished after" $LOG; then sleep 120; kill $PID 2>/dev/null; sleep 30; kill -9 $PID 2>/dev/null; break; fi
+  if grep -q "Training finished after" $LOG; then sleep 120; kill $PID 2>/dev/null || true; sleep 30; kill -9 $PID 2>/dev/null || true; break; fi
   sleep 60
 done
 wait $PID 2>/dev/null || true
