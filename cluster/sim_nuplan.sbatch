@@ -31,7 +31,14 @@ if [ -n "${LOCAL_PART:-}" ]; then
   # that part that are in none of our shared track copies (so never used for tuning or earlier checks).
   L=${TMPDIR:?}/nuplan_track; mkdir -p $L/navtest
   cp -r $B/data/nuplan_track/nuplan_test $L/; cp -r $B/data/nuplan_track/navtest/configs $L/navtest/
-  curl -sSfL --retry 5 "https://huggingface.co/datasets/OpenDriveLab/AlpasimChallenge2026_nuplan_track/resolve/main/MTGS_asset/navtest/assets/part$LOCAL_PART.tar.gz" | tar -xz -C $L
+  # hf resumes interrupted transfers (a piped curl stream was cut off after ~3 GB on 2026-10-08)
+  for attempt in 1 2 3; do
+    HOME=$TMPDIR/home HF_HUB_DISABLE_TELEMETRY=1 $B/envs/garage/bin/hf download OpenDriveLab/AlpasimChallenge2026_nuplan_track \
+      --repo-type dataset --include "MTGS_asset/navtest/assets/part$LOCAL_PART.tar.gz" --local-dir $TMPDIR/dl > /dev/null && break
+    sleep 60
+  done
+  tar -xzf $TMPDIR/dl/MTGS_asset/navtest/assets/part$LOCAL_PART.tar.gz -C $L || { echo "part $LOCAL_PART: download/extract failed"; exit 4; }
+  rm -rf $TMPDIR/dl
   mkdir -p $RUN/heldout
   ls $L/navtest/assets | grep -vxFf <(ls $B/data/nuplan_track/navtest/assets; ls $A/data/nuplan_track/navtest/assets) > $RUN/heldout/ids.txt || true
   head -${NSCENES} $RUN/heldout/ids.txt | sed "s/.*/'&'/" | paste -sd, - > $RUN/heldout/scene_ids.txt
