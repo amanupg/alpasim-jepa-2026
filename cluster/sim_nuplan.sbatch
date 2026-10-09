@@ -149,7 +149,8 @@ mkdir -p $B/data/fs
        "defines.filesystem=$B/data/fs hydra.run.dir=$RUN/hydra eval.video.render_video=${VIDEO:-false} wizard.baseport=$PORT_BASE" \
        "runtime.endpoints.driver.n_concurrent_rollouts=$ROLLOUTS $SEL"
 } > $RUN/wizard.sh
-apptainer exec -B $A:$A:ro -B $B ${LOCAL_PART:+-B $NUPLAN_ROOT} $SIF bash $RUN/wizard.sh   # LOCAL_PART: the wizard checks the node-local mount > $RUN/wizard.log 2>&1 || { tail -40 $RUN/wizard.log; exit 1; }
+# LOCAL_PART: the wizard checks that the node-local track root exists, so bind it
+apptainer exec -B $A:$A:ro -B $B ${LOCAL_PART:+-B $NUPLAN_ROOT} $SIF bash $RUN/wizard.sh > $RUN/wizard.log 2>&1 || { tail -40 $RUN/wizard.log; exit 1; }
 apptainer exec -B $B $SIF /repo/.venv/bin/python -c "import yaml,json; json.dump(yaml.safe_load(open('$RUN/docker-compose.yaml')), open('$RUN/docker-compose.json','w'), indent=1)"
 # Slurm sets TMPDIR=/local/slurm-job-N, which the containers cannot see (warp's NVRTC kernel build
 # failed with 'cannot open temporary file'): use /tmp, which apptainer binds
