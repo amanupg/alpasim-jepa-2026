@@ -68,12 +68,13 @@ elif [ $DRIVER = garage ]; then
 # ---- driver: py123d_garage (kesai-labs, Apache-2.0) v0.1.1 with its public checkpoint resnet34_v0.1.0/model_0014.pth
 #      and the nuPlan sensor rig, as in the checkpoint README (official entries with it: 0.848 / PCS ~1485)
   W=${GARAGE_W:-$B/weights/py123d/resnet34_v0.1.0}     # GARAGE_W: a training run dir (config.yaml + sensor rigs + model_NNNN.pth)
+  # GARAGE_RIG: our node-local runs export a rig without cameras (camera files deleted after caching): pass the public nuPlan rig
   export GARAGE_GTRS_CHECKPOINT=$B/weights/simscale/gtrs_dense_resnet_sim_reward_navhard.ckpt \
          GARAGE_GTRS_VOCAB=$B/weights/simscale/navsim_16384.npy     # used only with GARAGE_JUDGE=gtrs
   env PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 HOME=$RUN/garage_home OMP_NUM_THREADS=8 \
       PYTHONPATH=$B/src $B/envs/garage/bin/python -m garage_addons.entry hydra.run.dir=$RUN/garage \
       policy_config.evaluation_checkpoint_file=$W/${GARAGE_CKPT:-model_0014.pth} \
-      policy_config.evaluation_sensor_rig_file=$W/sensor_rig_0.yaml \
+      policy_config.evaluation_sensor_rig_file=${GARAGE_RIG:-$W/sensor_rig_0.yaml} \
       host=localhost port=$ALPASIM_DRIVER_PORT device=cuda ${GARAGE_OVERRIDES:-} > $RUN/driver.log 2>&1 &
   READY="garage driver listening"
 elif [ $DRIVER = imagep ]; then
