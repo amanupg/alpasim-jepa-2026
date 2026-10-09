@@ -81,6 +81,7 @@ for mode in route control; do
   HF_HUB_OFFLINE=1 $PY -m wajepa_route.train_route --cache $F --out $RUN/$mode \
     --repo $B/ext/WA-JEPA --config $B/ext/WA-JEPA/configs/wa_jepa_navsim_epdms.yaml \
     --checkpoint $B/weights/wa-jepa/model_state_dict.pt --epochs ${EPOCHS:-3} --eval-every ${EVAL_EVERY:-1000} $X ${EXTRA:-} \
-    2>&1 | grep -vE "warn|it/s" | grep -E '"event": "(start|eval)"|Error|Traceback' | cut -c1-600
+    > $RUN/train_$mode.log 2>&1 || { echo "training $mode failed:"; tail -15 $RUN/train_$mode.log; }
+  grep -E '"event": "(start|eval)"' $RUN/train_$mode.log | cut -c1-600 || true
 done
 ls -la $RUN/route $RUN/control
