@@ -603,3 +603,14 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - Node-local training jobs are queued but waiting: the cluster is CPU-saturated (A6000 nodes have 2-12 free cores, and our jobs need 16) and our fair share is the lowest in `edu`.
 - 2026-10-09 fixes: fresh-part sims needed (1) a resumable download (a piped curl stream of the 33 GB part was cut off), (2) the node-local root bound into the wizard container, (3) a 2 h limit (download ~30 min + sim). Part 003 gives 93 fresh scenes, part 014 gives 100. R2 runs and R3 on 014 are done; base on 003/014 and R3 on 003 rerun (13286359-61).
 - Node-local training jobs ran for the first time and failed on script bugs, now fixed: WA-JEPA exited silently (`set -e` + `pipefail` on a `test && echo` loop inside `$(...)`); py123d's first batch had no val log (the preset has train and val sources). Rerun: WA-JEPA small run 13286696, py123d smoke 13286697 → fine-tune A 13286698.
+
+## 2026-10-09 Fresh parts 003 + 014 (193 never-used scenes, node-local): radius 3 adopted
+| py123d, paired | Part 003 (93) | Part 014 (100) | Fresh pooled (193) |
+|---|---|---|---|
+| R2 recipe − base | +0.040 [+0.017, +0.067] | +0.107 [+0.059, +0.156] | +0.075 [+0.048, +0.105], W38 / L9 |
+| **R3 recipe − base** | +0.044 [+0.018, +0.075] | **+0.178** [+0.120, +0.237] | **+0.113 [+0.080, +0.149], W50 / L11** |
+| R3 − R2 | +0.004 [-0.016, +0.028] | +0.071 [+0.029, +0.117], 9 big W / 0 big L | **+0.039 [+0.014, +0.065]** |
+- With tuning R3 − R2 +0.018 [+0.001, +0.036], R3 is positive on both sets and never worse: **adopted. py123d recipe = judge m3 R3 + 1.10 straight-only warp skipped on judged plans.** Collisions 0.00-0.01 (base 0.01-0.02); offroad on 014 0.30 → 0.07.
+- Part 014 is hard for plain py123d (0.632), and that is where the judge helps most (offroad).
+- **py123d node-local pipeline works end to end** (smoke 13286697: 30 logs cached in 30 min, 13 GB = 0.43 GB/log, one epoch of 10.9k samples). The job was marked failed only by its ending (watchdog kill of the post-training hang, then `ls | head` under pipefail), which blocked the chained fine-tune A. Fixed; **fine-tune A submitted: 13287171** (430 logs requested; local-disk check stops the data stage early on nodes with ~200 GB).
+- WA-JEPA pilot small run 13287111 (the training module had not been synced before; all module hashes now match).
