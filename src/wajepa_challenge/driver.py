@@ -27,7 +27,7 @@ import grpc
 
 from .batch_worker import BatchPolicy, BatchWorker
 from .navigation import DriveCommand, command_from_route, command_one_hot
-from .route_bridge import bridge_one_hot, snap_plan_to_route
+from .route_bridge import bridge_one_hot, snap_plan_to_route, target_point_py123d
 from .timewarp import warp_plan
 from .policy import ConstVelPolicy, InferenceInput, Prediction, WaJepaPolicy
 from .preprocessing import (
@@ -666,6 +666,7 @@ class NavsimTransfuserDriver(egodriver_pb2_grpc.EgodriverServiceServicer):
                     ego_status=build_ego_status(session.command_one_hot, velocity, acceleration),
                     judge_images=judge_images,
                     tag=request.session_uuid,
+                    target_point=target_point_py123d(session.route_xy),
                 )
                 if padded:
                     session.counters.history_pad += 1

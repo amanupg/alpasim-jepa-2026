@@ -30,6 +30,7 @@ class InferenceInput:
     ego_status: np.ndarray           # [8]
     tag: str = ""                    # session uuid, for the judge log
     judge_images: dict | None = None  # raw 1920x1080 CAM_L0/F0/R0 at the newest history time (WAJEPA_JUDGE)
+    target_point: np.ndarray | None = None  # [2] route point 45 m ahead, rig frame (WAJEPA_ROUTE_CKPT models)
 
     def __post_init__(self) -> None:
         if len(self.history) != NUM_HISTORY:
@@ -103,6 +104,24 @@ class WaJepaPolicy:
 
         model = build_world_model(cfg_dict).to(self.device)
         load_checkpoint(checkpoint_path, model, map_location=str(self.device), log_fn=LOGGER.info)   # strict
+        # WAJEPA_ROUTE_CKPT: the route pilot (src/wajepa_route): add the target-point encoder and load the fine-tuned
+        # trajectory-stream tensors over the released weights; every tensor in the file must match a parameter.
+        self.route_target_point = False
+        route_ckpt = os.environ.get("WAJEPA_ROUTE_CKPT", "")
+        if route_ckpt:
+            from wajepa_route.route_model import install
+            install(model)
+            ck = torch.load(route_ckpt, map_location=str(self.device), weights_only=False)
+            params = dict(model.named_parameters())
+            unknown = [k for k in ck["state_dict"] if k not in params]
+            if unknown:
+                raise RuntimeError(f"route checkpoint has unknown tensors: {unknown[:5]}")
+            with torch.no_grad():
+                for k, v in ck["state_dict"].items():
+                    params[k].copy_(v.to(params[k].dtype))
+            self.route_target_point = bool(ck.get("with_target_point", True))
+            LOGGER.info("route pilot loaded: %s (%d tensors, step %s, target point %s)", route_ckpt,
+                        len(ck["state_dict"]), ck.get("step"), self.route_target_point)
         self.model = model.eval()
         LOGGER.info("WA-JEPA loaded in %.0fs (cuda allocated %.2f GB)", time.time() - t0,
                     torch.cuda.memory_allocated() / 1e9 if self.autocast else 0.0)
@@ -137,6 +156,10 @@ class WaJepaPolicy:
             "ego_status": torch.from_numpy(np.stack([r.ego_status for r in requests])).to(self.device),
             "history_trajectory": torch.from_numpy(np.stack([r.history_trajectory for r in requests])).to(self.device),
         }
+        if self.route_target_point:
+            # no route yet: straight ahead at 45 m (what the route rule gives on a straight road)
+            tps = [r.target_point if r.target_point is not None else np.array([45.0, 0.0], np.float32) for r in requests]
+            feats["target_point"] = torch.from_numpy(np.stack(tps).astype(np.float32)).to(self.device)
         ctx = torch.autocast("cuda", dtype=torch.bfloat16) if self.autocast else torch.autocast("cpu", enabled=False)
         with ctx:
             pred = self.model.predict_trajectory(feats)

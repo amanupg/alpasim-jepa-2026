@@ -91,3 +91,37 @@ def snap_plan_to_route(plan: np.ndarray, waypoints_xy: np.ndarray, s0_m: float =
     moving = np.linalg.norm(d, axis=1) > 1e-3
     yaw = np.where(moving, yaw, plan[:, 2])
     return np.column_stack([out_xy, yaw])
+
+
+def target_point_py123d(waypoints_xy: np.ndarray | None, distance_m: float = 45.0,
+                        resolution_m: float = 0.1) -> np.ndarray | None:
+    """The route target point exactly as py123d_garage's AlpaSim driver builds it (driver_service._plan @ v0.1.1):
+    the route waypoints in the rig frame, the ego origin prepended when the first waypoint is farther than the
+    route resolution, extended along the final heading to distance + 2 m, then the point `distance_m` along the arc.
+    This is also how the WA-JEPA route pilot's training targets were made (py123d get_target_points on the log's
+    route, measured from the ego's progress), so the policy sees the same signal in simulation."""
+    if waypoints_xy is None:
+        return None
+    p = np.asarray(waypoints_xy, np.float64).reshape(-1, 2)
+    p = p[~np.isnan(p).any(axis=1)]
+    if len(p) == 0:
+        return None
+    if float(np.linalg.norm(p[0])) > resolution_m:
+        p = np.vstack([np.zeros((1, 2)), p])
+    if len(p) < 2:
+        return None
+    seg = np.linalg.norm(np.diff(p, axis=0), axis=1)
+    short = distance_m + 2.0 - float(seg.sum())
+    if short > 0:                                            # _extend_route: along the last metre's heading
+        arc_from_end = np.concatenate([[0.0], np.cumsum(seg[::-1])])[::-1]
+        tail = min(max(int(np.searchsorted(-arc_from_end, -1.0)) - 1, 0), len(p) - 2)
+        h = p[-1] - p[tail]
+        n = float(np.linalg.norm(h))
+        if n > 0:
+            p = np.vstack([p, p[-1] + h / n * short])
+            seg = np.linalg.norm(np.diff(p, axis=0), axis=1)
+    keep = np.concatenate([[True], seg > 0.0])
+    p = p[keep]
+    arc = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(p, axis=0), axis=1))])
+    s = min(distance_m, float(arc[-1]))
+    return np.array([np.interp(s, arc, p[:, 0]), np.interp(s, arc, p[:, 1])], np.float32)
