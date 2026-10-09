@@ -15,6 +15,7 @@
 #   NSCENES=N fallback; ROLLOUTS=2 (concurrent, as officially); TAG=name; WAJEPA_* passed to the driver
 #   DRIVER=wajepa (default) | a15 (AlpaSim v0.3 Alpamayo driver, run read-only with its image settings)
 #   NUPLAN_ROOT=<worldengine root> (default: the AlpaSim nuPlan data); SCENES_FROM=none to pick from it
+#   LOCAL_PART=NNN: fresh held-out scenes from MTGS asset part NNN on the node-local disk (see below)
 source /etc/profile
 module load apptainer/1.4.5
 set -x
@@ -24,6 +25,19 @@ SIF=$A/sandbox/alpasim-base; REPO=$A/external/alpasim
 ROLLOUTS=${ROLLOUTS:-2}; NSCENES=${NSCENES:-100}; DRIVER=${DRIVER:-wajepa}
 NUPLAN_ROOT=${NUPLAN_ROOT:-$A/data/nuplan_track}
 RUN=$B/runs/nuplan_${DRIVER}${TAG:+_$TAG}_$SLURM_JOB_ID; mkdir -p $RUN
+if [ -n "${LOCAL_PART:-}" ]; then
+  # Fresh held-out scenes without using the dept fileset (full on 2026-10-08): build a track root on the node's
+  # /local from the shared trajdata cache + configs and MTGS asset part LOCAL_PART, and drive only the scenes of
+  # that part that are in none of our shared track copies (so never used for tuning or earlier checks).
+  L=${TMPDIR:?}/nuplan_track; mkdir -p $L/navtest
+  cp -r $B/data/nuplan_track/nuplan_test $L/; cp -r $B/data/nuplan_track/navtest/configs $L/navtest/
+  curl -sSfL --retry 5 "https://huggingface.co/datasets/OpenDriveLab/AlpasimChallenge2026_nuplan_track/resolve/main/MTGS_asset/navtest/assets/part$LOCAL_PART.tar.gz" | tar -xz -C $L
+  mkdir -p $RUN/heldout
+  ls $L/navtest/assets | grep -vxFf <(ls $B/data/nuplan_track/navtest/assets; ls $A/data/nuplan_track/navtest/assets) > $RUN/heldout/ids.txt || true
+  head -${NSCENES} $RUN/heldout/ids.txt | sed "s/.*/'&'/" | paste -sd, - > $RUN/heldout/scene_ids.txt
+  echo "part $LOCAL_PART: $(wc -l < $RUN/heldout/ids.txt) fresh scenes, driving $(head -${NSCENES} $RUN/heldout/ids.txt | wc -l)"
+  NUPLAN_ROOT=$L; SCENES_FROM=$RUN/heldout
+fi
 env | grep -E "^WAJEPA_|^A15_|^LTF_|^DIFFUSIONDRIVE_|^GTRS_|^GARAGE_" | sort > $RUN/variant.env; echo "NUPLAN_ROOT=$NUPLAN_ROOT" >> $RUN/variant.env
 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
 PORT_BASE=$((20000 + (SLURM_JOB_ID % 4000) * 10))

@@ -6,7 +6,8 @@ import glob, json, random, re, statistics as st, sys
 from collections import defaultdict
 
 TUNING = ("001", "010", "005")              # used for choosing settings
-HELDOUT = ("013", "007", "011")             # 013 was used once (to pick margin 3); 007 and 011 never
+HELDOUT = ("013", "007", "011")             # used to pick margin 3 (013) and radius 2 (all three)
+FRESH = ("003", "014")                       # node-local parts (LOCAL_PART), fresh scenes only; for R3 and later
 # The first runs of each baseline predate the naming scheme.
 LEGACY = {("garage", "base", "001"): "nuplan_garage_s001_13121307", ("garage", "base", "010"): "nuplan_garage_s010_13121308",
           ("garage", "base", "005"): "nuplan_garage_s005_13121309", ("wajepa", "base", "001"): "nuplan_wajepa_v1_12994594",
@@ -46,7 +47,7 @@ def main(root):
     for (driver, tag, shard) in data:
         configs[(driver, tag)][shard] = data[(driver, tag, shard)]
     random.seed(0)
-    for group, shards in (("TUNING", TUNING), ("HELD-OUT", HELDOUT)):
+    for group, shards in (("TUNING", TUNING), ("HELD-OUT", HELDOUT), ("FRESH", FRESH)):
         print(f"\n== {group} shards {'/'.join(shards)}: diff vs the same model's baseline on the same scenes")
         for (driver, tag), per in sorted(configs.items()):
             if tag == "base":
