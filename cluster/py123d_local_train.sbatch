@@ -97,5 +97,7 @@ while kill -0 $PID 2>/dev/null; do
   sleep 60
 done
 wait $PID 2>/dev/null || true
+set +eo pipefail       # reporting only from here; the exit status says whether training finished
 grep -E "train samples|Epoch [0-9]+/[0-9]+ done|Training finished|Error|Traceback" $RUN/train.log | tail -40 | cut -c1-250
 ls -la $RUN | head -30
+grep -q "Training finished after" $RUN/train.log
