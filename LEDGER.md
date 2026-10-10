@@ -645,3 +645,15 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Fine-tune A + R3 vs public + R3, paired:** tuning +0.012 [-0.005, +0.030], held-out +0.016 [-0.011, +0.044], fresh +0.001 [-0.022, +0.025]; **all 754 scenes +0.011 [-0.002, +0.025]**, W116 / L95, big W20 / L20, P(> 0) = 0.91. The fine-tune's gain mostly overlaps with the recipe's (both cut offroad).
 - **Lead candidate: fine-tune A + R3 recipe.** Reason: the fine-tune alone is positive on every set (+0.036 to +0.059) and does not depend on the NAVSIM-trained judge transferring to the official score; if the judge transfers, the combination is at least as good as the recipe alone; if it does not, the fine-tune still carries a gain. A submission image needs the public nuPlan rig (see above).
 - **Fine-tune A2 submitted (13304532):** continues from A's epoch 15 on a disjoint third of nuPlan (`OFFSET=1`, 430 logs), 15 epochs.
+
+## 2026-10-10 WA-JEPA route pilot, round 1 result (13303410): fine-tuning hurts; the route signal helps a little
+- Data: 18 batches in 6 h (~9.8k train samples, 154 shards; 1,091 val samples from 20 val logs). Training ~11 samples/s on an A6000, 1,726 steps (3 epochs), lr 1e-4.
+
+| Val (1,091 samples; 160 turns) | ADE | FDE | lat. err 4 s | Turns ADE / FDE / lat. 4 s |
+|---|---|---|---|---|
+| released WA-JEPA | **0.654** | **1.831** | **0.323** | **0.488 / 1.203 / 0.757** |
+| route fine-tune (trajectory stream + target point) | 0.676 | 1.890 | 0.326 | 0.577 / 1.432 / 0.842 |
+| control fine-tune (no route input) | 0.682 | 1.910 | 0.331 | 0.589 / 1.484 / 0.863 |
+- **Fine-tuning the trajectory stream degrades the released model** (final train loss 3.3e-5: overfitting ~10k samples at lr 1e-4; the released model already trained on NAVSIM navtrain, which is built from these nuPlan train logs).
+- **The route input helps relative to the control** (turns FDE 1.43 vs 1.48, lateral 0.84 vs 0.86) but not enough to offset the drift. No closed-loop test for these checkpoints (worse open-loop than the released model).
+- **Round 2 (13310920), same data recipe, three runs on the same features:** target-point encoder only (lr 1e-4; the released weights cannot drift, so the route signal is the only change), route + trajectory stream at lr 1e-5, control at lr 1e-5.
