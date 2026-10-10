@@ -17,7 +17,25 @@ NAME = re.compile(r"nuplan_(garage|wajepa)_(?:(.+)_)?s(\d{3})_(\d+)$")
 SKIP_TAGS = {"rerun"}                       # determinism check, identical to base
 
 
+SCORED = {"offroad", "collision_at_fault", "left_corridor_laterally"}
+INFRA_WARN = 2      # more failed rollouts than this whose reason is not a driving outcome or a known scene issue
+
+
+def infra_failures(path):
+    """Rollouts that failed for infrastructure reasons (GPU faults, quota, RPC errors), not driving outcomes; the
+    route sanity-check failures are scene-data issues shared by every driver and are not counted."""
+    n = 0
+    for r in json.load(open(path))["rollouts"]:
+        reason = (r.get("failure_reason") or "").strip()
+        if reason and reason not in SCORED and "fails sanity check" not in reason:
+            n += 1
+    return n
+
+
 def load(path):
+    bad = infra_failures(path)
+    if bad > INFRA_WARN:
+        print(f"WARNING {path.split('/')[-2]}: {bad} rollouts failed for infrastructure reasons; rerun it")
     out = {}
     for r in json.load(open(path))["rollouts"]:
         m = r.get("score_metrics") or {}
