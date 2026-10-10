@@ -631,3 +631,13 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Fine-tune A, closed loop (tuning, plain, vs public 0014 on the same scenes):** epoch 15 **+0.059 [+0.034, +0.084]**, W72 / L34, per shard 001 / 010 / 005: +0.054 / +0.063 / +0.062; epoch 7 +0.051 [+0.026, +0.076]. Offroad 0.107 → 0.040. No leakage: training used nuPlan train/val; the eval scenes are navtest (nuPlan test).
   - The first eval runs failed: the run's exported `sensor_rig_0.yaml` has no cameras (camera files were deleted after caching). `GARAGE_RIG` now passes the public nuPlan rig; **a submission image of a fine-tuned checkpoint must ship the public rig.**
   - Queued (13298612-27): fine-tune A + R3 recipe on tuning; fine-tune A plain and + R3 on held-out 013/007/011 and fresh 003/014; and the public 0014 + R3 recipe on held-out (missing so far).
+
+## 2026-10-09/10 Fine-tune A everywhere; a GPU fault; the pilot hung
+| py123d vs public 0014 base, paired | Tuning 300 | Held-out 261 | Fresh 193 |
+|---|---|---|---|
+| public + R3 recipe | +0.061 [+0.035, +0.088] | +0.063 [+0.032, +0.093] | +0.113 [+0.080, +0.148] |
+| fine-tune A (epoch 15), plain | +0.059 [+0.034, +0.084] | +0.047 [+0.021, +0.075] | +0.036 [+0.014, +0.059] |
+| fine-tune A + R3 recipe | **+0.073 [+0.046, +0.101]** | **+0.079 [+0.044, +0.114]** | (part 014 invalid, rerun 13303388) |
+- **Fine-tune A alone is a consistent gain on all three sets** (+0.036 to +0.059). With the recipe it is the best on tuning and held-out.
+- **Part 014 of fine-tune A + R3 was corrupted by hardware:** 26 of 100 rollouts failed with "CUDA error: uncorrectable ECC error" on **ins058** (scored 0 by the evaluator). Rerun on another node; ins058 excluded. A scan of every run found no other infrastructure failures in current results (route "folds back" scene issues and one RPC error in part 007 are identical across all drivers; the disk-quota run of the incident was already superseded). `report.py` now warns on any run with > 2 such failures.
+- **WA-JEPA full pilot (13287532) timed out without training:** data ran normally for 5.4 h (31 batches, 201 GB of features), then encoding batch 32 hung after loading the model (no output for 6.6 h; most likely a stalled data-loader worker). Fixed: DataLoader `timeout=300`, fetch and encode limited per batch (30 / 40 min) and skipped on failure, a data deadline (`DATA_HOURS`, default 6 h) so training always runs. Resubmitted: 13303410 (≤ 200 GB / 6 h of data, then route and control).
