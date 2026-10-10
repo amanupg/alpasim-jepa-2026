@@ -76,8 +76,10 @@ for i in "${!BL[@]}"; do
 done
 echo "train shards $(ls $F/nuplan_train | wc -l), val shards $(ls $F/nuplan_val | wc -l)"
 cd $B/ext/py123d_garage
-for mode in route control; do
-  X=""; [ $mode = control ] && X="--no-target-point"
+# MODES: name:extra-args entries (default: the first pilot's two runs)
+MODES=${MODES:-"route: control:--no-target-point"}
+for entry in $MODES; do
+  mode=${entry%%:*}; X=$(echo "${entry#*:}" | tr "," " ")
   HF_HUB_OFFLINE=1 $PY -m wajepa_route.train_route --cache $F --out $RUN/$mode \
     --repo $B/ext/WA-JEPA --config $B/ext/WA-JEPA/configs/wa_jepa_navsim_epdms.yaml \
     --checkpoint $B/weights/wa-jepa/model_state_dict.pt --epochs ${EPOCHS:-3} --eval-every ${EVAL_EVERY:-1000} $X ${EXTRA:-} \

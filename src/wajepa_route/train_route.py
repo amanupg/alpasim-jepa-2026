@@ -98,14 +98,16 @@ def main():
     ap.add_argument("--eval-every", type=int, default=2000)
     ap.add_argument("--eval-max", type=int, default=2000)
     ap.add_argument("--no-target-point", action="store_true", help="control: same fine-tune without the route input")
+    ap.add_argument("--target-point-only", action="store_true",
+                    help="train only the target-point encoder (no drift of the released weights)")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     torch.manual_seed(0)
     dev = torch.device("cuda")
     model, _ = load_model(a.repo, a.config, a.checkpoint, dev)
     install(model)
-    params = freeze_all_but_trajectory(model)
-    names = trainable_names(model)
+    params = freeze_all_but_trajectory(model, only_target_point=a.target_point_only)
+    names = trainable_names(model, only_target_point=a.target_point_only)
     with_tp = not a.no_target_point
     train_paths = sorted(glob.glob(f"{a.cache}/{a.train_split}/*.pt"))
     val_paths = sorted(glob.glob(f"{a.cache}/{a.val_split}/*.pt"))

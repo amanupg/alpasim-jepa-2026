@@ -70,12 +70,17 @@ def install(model) -> None:
     cond.inference_conditions = types.MethodType(inference_conditions, cond)
 
 
-def trainable_names(model) -> list[str]:
-    return [n for n, _ in model.named_parameters() if _TRAJ_PARAM.search(n)]
+def trainable_names(model, only_target_point: bool = False) -> list[str]:
+    names = [n for n, _ in model.named_parameters() if _TRAJ_PARAM.search(n)]
+    return [n for n in names if n.startswith("predictor.target_point_encoder.")] if only_target_point else names
 
 
-def freeze_all_but_trajectory(model) -> list[nn.Parameter]:
+def freeze_all_but_trajectory(model, only_target_point: bool = False) -> list[nn.Parameter]:
+    """only_target_point: train just the new target-point encoder (the released model cannot drift; the route
+    signal is the only change)."""
     names = set(trainable_names(model))
+    if only_target_point:
+        names = {n for n in names if n.startswith("predictor.target_point_encoder.")}
     params = []
     for n, p in model.named_parameters():
         p.requires_grad_(n in names)
