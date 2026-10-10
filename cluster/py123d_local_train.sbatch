@@ -29,13 +29,13 @@ CPUS=$(( ${SLURM_CPUS_PER_TASK:-24} * ${SLURM_NTASKS_PER_NODE:-1} ))
 free_gb() { df -BG --output=avail /local | tail -1 | tr -dc 0-9; }
 echo "local free at start: $(free_gb) GB; $CPUS CPUs; $(nvidia-smi --list-gpus | wc -l) GPUs"
 cd $D
-$PY - $NLOGS $BATCH_LOGS > batches.txt <<'EOF'
+$PY - $NLOGS $BATCH_LOGS ${OFFSET:-0} > batches.txt <<'EOF'
 import sys, pandas as pd
-n, bl = map(int, sys.argv[1:])
+n, bl, offset = map(int, sys.argv[1:])
 df = pd.read_parquet("index.parquet"); df = df[df.has_sensors & df.split.isin(["nuplan_train", "nuplan_val"])]
 df = df.sort_values(["split", "log_name"])
 step = max(1, len(df) // n)
-pick = [f"{s}/{x}" for s, x in zip(df.split, df.log_name)][::step][:n]
+pick = [f"{s}/{x}" for s, x in zip(df.split, df.log_name)][offset::step][:n]   # OFFSET 0/1/2: disjoint thirds
 # the preset has a train and a val source: the first cached batch must hold logs of both splits
 first_val = next(i for i, p in enumerate(pick) if p.startswith("nuplan_val/"))
 pick.insert(0, pick.pop(first_val))
