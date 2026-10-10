@@ -23,6 +23,9 @@ RUN=${RUN_DIR:-$B/runs/py123d_local${TAG:+_$TAG}_$SLURM_JOB_ID}; mkdir -p $RUN
 export PY123D_GARAGE_DATA_ROOT=$T PYTHONNOUSERSITE=1 HF_HUB_DISABLE_TELEMETRY=1 HOME=$T/home PY123D_GARAGE_RUNTIME_TYPE_CHECKING=false
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1 NUMBA_THREADING_LAYER=workqueue
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True WANDB_MODE=disabled
+# Aman 2026-10-10: authenticated downloads with the AlpaSim HF account (anonymous ones were throttled to ~1 MB/s).
+# Only the token FILE path is passed (never the token on a command line); the file is read in place.
+export HF_TOKEN_PATH=/insomnia001/depts/edu/users/au2327/alpasim/.cache/hf/token HF_XET_HIGH_PERFORMANCE=1
 D=$T/nuplan/123D; mkdir -p $D $HOME; cp -r $B/data/py123d/nuplan/123D/index.parquet $B/data/py123d/nuplan/123D/maps $D/
 PY=$B/envs/garage-train/bin/python; HF=$B/envs/garage/bin/hf
 CPUS=$(( ${SLURM_CPUS_PER_TASK:-24} * ${SLURM_NTASKS_PER_NODE:-1} ))
@@ -43,18 +46,25 @@ for i in range(0, len(pick), bl):
     print(" ".join(pick[i:i + bl]))
 EOF
 echo "$(wc -l < batches.txt) batches of up to $BATCH_LOGS logs"
-fetch() {   # into a staging dir, moved into the data root only when complete (the cache builder scans every log dir)
-  local S=$T/stage_$2; mkdir -p $S
-  local ARGS=(); for x in $1; do ARGS+=(--include "logs/$x/*"); done
-  for c in l1 l2 r1 r2 b0; do ARGS+=(--exclude "*/camera.pcam_$c.arrow"); done; ARGS+=(--exclude "*/lidar.lidar_merged.arrow")
-  for attempt in 1 2 3; do
-    if $HF download kesai-labs/nuplan --repo-type dataset --local-dir $S "${ARGS[@]}" > /dev/null 2>> $RUN/fetch.err; then
-      for x in $1; do mkdir -p $D/logs/${x%%/*}; [ -d $S/logs/$x ] && mv $S/logs/$x $D/logs/$x; done
-      rm -rf $S; return 0
-    fi
-    echo "fetch attempt $attempt failed: $(tail -2 $RUN/fetch.err | cut -c1-200)"; sleep 30
+fetch() {   # 3 parallel downloads per batch, each into its own staging dir, moved into the data root when complete
+  local x k=0 pids=() ok=0
+  for x in $1; do echo "$x"; done | split -n r/${PAR:-3} - $T/stage_list_$2_
+  for lst in $T/stage_list_$2_*; do
+    ( S=$T/stage_$2_$k; mkdir -p $S; ARGS=(); while read -r y; do ARGS+=(--include "logs/$y/*"); done < $lst
+      for c in l1 l2 r1 r2 b0; do ARGS+=(--exclude "*/camera.pcam_$c.arrow"); done; ARGS+=(--exclude "*/lidar.lidar_merged.arrow")
+      for attempt in 1 2 3; do
+        if timeout 3600 $HF download kesai-labs/nuplan --repo-type dataset --local-dir $S "${ARGS[@]}" > /dev/null 2>> $RUN/fetch.err; then
+          while read -r y; do mkdir -p $D/logs/${y%%/*}; [ -d $S/logs/$y ] && mv $S/logs/$y $D/logs/$y; done < $lst
+          rm -rf $S; exit 0
+        fi
+        echo "fetch $lst attempt $attempt failed"; sleep 30
+      done
+      exit 1 ) &
+    pids+=($!); k=$((k + 1))
   done
-  return 1
+  for p in "${pids[@]}"; do wait $p || ok=1; done
+  rm -f $T/stage_list_$2_*
+  return $ok
 }
 cache() {
   (cd $B/ext/py123d_garage && $PY -m py123d_garage.cache.build_cache \
@@ -67,12 +77,15 @@ mapfile -t BL < batches.txt
 t0=$(date +%s); fetch "${BL[0]}" 0
 for i in "${!BL[@]}"; do
   n=$((i + 1)); PREF=""
-  if [ $n -lt ${#BL[@]} ] && [ $(free_gb) -ge $MIN_FREE_GB ]; then fetch "${BL[$n]}" $n & PREF=$!; fi
+  if [ $n -lt ${#BL[@]} ] && [ $(free_gb) -ge $MIN_FREE_GB ]; then fetch "${BL[$n]}" $n & PREF=$!; fi   # (fetched-but-uncached logs are removed below)
   cache $i
   for x in ${BL[$i]}; do rm -f $D/logs/$x/camera.*.arrow; done      # cached: training needs only the metadata
   [ -n "$PREF" ] && wait $PREF
   echo "$(date -u +%T) batch $i cached; cache $(du -s --block-size=1G $T/nuplan/py123d_garage_cache | cut -f1) GB, local free $(free_gb) GB, $(( $(date +%s) - t0 )) s"
   if [ -z "$PREF" ]; then [ $n -lt ${#BL[@]} ] && echo "stopping data after batch $i: local disk low"; break; fi
+  if [ $(( $(date +%s) - t0 )) -gt $(( ${DATA_HOURS:-7} * 3600 )) ]; then                 # leave time to train
+    echo "stopping data after batch $i: DATA_HOURS reached"; wait $PREF 2>/dev/null || true; break
+  fi
 done
 # drop logs fetched but not cached (their scenes would fail the cache coverage check), and any staging dirs
 for j in $(seq $((i + 1)) $(( ${#BL[@]} - 1 ))); do for x in ${BL[$j]}; do rm -rf $D/logs/$x; done; done; rm -rf $T/stage_*

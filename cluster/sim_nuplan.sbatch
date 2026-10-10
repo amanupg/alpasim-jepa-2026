@@ -33,7 +33,7 @@ if [ -n "${LOCAL_PART:-}" ]; then
   cp -r $B/data/nuplan_track/nuplan_test $L/; cp -r $B/data/nuplan_track/navtest/configs $L/navtest/
   # hf resumes interrupted transfers (a piped curl stream was cut off after ~3 GB on 2026-10-08)
   for attempt in 1 2 3; do
-    HOME=$TMPDIR/home HF_HUB_DISABLE_TELEMETRY=1 $B/envs/garage/bin/hf download OpenDriveLab/AlpasimChallenge2026_nuplan_track \
+    HOME=$TMPDIR/home HF_HUB_DISABLE_TELEMETRY=1 HF_TOKEN_PATH=/insomnia001/depts/edu/users/au2327/alpasim/.cache/hf/token $B/envs/garage/bin/hf download   # token file path only (Aman 2026-10-10) OpenDriveLab/AlpasimChallenge2026_nuplan_track \
       --repo-type dataset --include "MTGS_asset/navtest/assets/part$LOCAL_PART.tar.gz" --local-dir $TMPDIR/dl > /dev/null && break
     sleep 60
   done

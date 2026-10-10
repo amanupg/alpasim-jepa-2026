@@ -18,6 +18,9 @@ set -eo pipefail
 B=/insomnia001/depts/edu/users/au2327/alpasim-jepa; T=${TMPDIR:?}
 NTRAIN=${NTRAIN:-200}; NVAL=${NVAL:-12}; BATCH_LOGS=${BATCH_LOGS:-12}; FEAT_GB=${FEAT_GB:-100}; MIN_FREE_GB=${MIN_FREE_GB:-25}
 RUN=$B/runs/wajepa_route_local_$SLURM_JOB_ID; mkdir -p $RUN
+# Aman 2026-10-10: authenticated downloads with the AlpaSim HF account (anonymous ones were throttled to ~1 MB/s).
+# Only the token FILE path is passed (never the token on a command line); the file is read in place.
+export HF_TOKEN_PATH=/insomnia001/depts/edu/users/au2327/alpasim/.cache/hf/token
 D=$T/nuplan/123D; F=$T/feat; mkdir -p $D $F
 cp -r $B/data/py123d/nuplan/123D/index.parquet $B/data/py123d/nuplan/123D/maps $D/
 export PYTHONNOUSERSITE=1 HF_HUB_DISABLE_TELEMETRY=1 HOME=$T/home PYTHONPATH=$B/src
