@@ -117,7 +117,8 @@ def main():
     out_dir = os.path.join(a.out, a.split)
     os.makedirs(out_dir, exist_ok=True)
     loader = DataLoader(SampleDataset(scenes), batch_size=a.batch, num_workers=a.workers, collate_fn=collate,
-                        prefetch_factor=2 if a.workers else None, persistent_workers=False)
+                        prefetch_factor=2 if a.workers else None, persistent_workers=False,
+                        timeout=300 if a.workers else 0)   # a stalled worker raises instead of hanging the job
     buf, k, n_done, t1 = [], 0, 0, time.time()
 
     def flush():
