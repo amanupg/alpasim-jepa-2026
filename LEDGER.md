@@ -658,3 +658,17 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **The route input helps relative to the control** (turns FDE 1.43 vs 1.48, lateral 0.84 vs 0.86) but not enough to offset the drift. No closed-loop test for these checkpoints (worse open-loop than the released model).
 - **Round 2 (13310920), same data recipe, three runs on the same features:** target-point encoder only (lr 1e-4; the released weights cannot drift, so the route signal is the only change), route + trajectory stream at lr 1e-5, control at lr 1e-5.
 - **2026-10-10 downloads throttled.** Anonymous Hugging Face downloads fell to ~1 MB/s (a 450 MB file took 8+ min) on several nodes; fine-tune A2 (13304532) could not finish its data and was cancelled after 5 h. **Aman approved** using the AlpaSim HF account's token file in place (`HF_TOKEN_PATH`, path only; account amanupg-columbia). Token + `HF_XET_HIGH_PERFORMANCE=1`: one log (1.6 GB) in 128 s (~12.5 MB/s). py123d jobs now fetch each batch as 3 parallel downloads and stop data after `DATA_HOURS` (7). A2 resubmitted with 300 logs: 13320641. WA-JEPA round 2 (13310920) started before the change (anonymous) and caps its data at 6 h.
+
+## 2026-10-11 WA-JEPA route pilot, round 2 (13310920): negative; fine-tuning paused
+- Data (anonymous downloads, throttled): 9 batches in 6 h, ~4.9k train samples (77 shards), same 1,091 val samples. 878 steps (3 epochs) per run.
+
+| Val (1,091; 160 turns) | ADE | FDE | lat. 4 s | Turns ADE / FDE / lat. 4 s | Final train loss |
+|---|---|---|---|---|---|
+| released WA-JEPA | **0.681** | **1.892** | **0.328** | **0.503 / 1.215 / 0.768** | (9.2e-5 at start) |
+| target-point encoder only, lr 1e-4 | 0.699 | 1.976 | 0.375 | 0.574 / 1.394 / 0.865 | 8.2e-5 |
+| route + trajectory stream, lr 1e-5 | 0.697 | 1.919 | 0.331 | 0.538 / 1.308 / 0.795 | 5.9e-5 |
+| control (no route), lr 1e-5 | 0.691 | 1.909 | 0.330 | 0.535 / 1.303 / 0.795 | 5.9e-5 |
+- **The route input does not lower the training loss** (route = control, 5.9e-5), and the encoder-only run barely moves it, yet all runs get worse on validation. Fine-tuning lowers the training loss but raises the validation error: overfitting.
+- **Reading:** the released WA-JEPA is already near its floor on nuPlan (it was trained on NAVSIM navtrain, built from these logs), and the 45 m route point adds no information beyond its cameras, history and drive command for this loss. Two rounds and six runs found no configuration that beats the released weights open-loop, so no closed-loop test is warranted.
+- **Decision: WA-JEPA fine-tuning is paused.** The JEPA line stays alive as the `v4` image (WA-JEPA + judge, margin 1; judge gain +0.025 on held-out scenes) and as research; resume only with a new idea (e.g. route-aware data where the route actually disambiguates, such as intersections, or a closed-loop objective).
+- Round 1 vs round 2 released numbers differ (0.654 vs 0.681) because the val sample sets differ slightly (different batches finished); comparisons are within a round.
