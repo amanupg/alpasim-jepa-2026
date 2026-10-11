@@ -675,3 +675,12 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Fine-tune A2 trained (13320641, A6000 node ins094):** from fine-tune A's epoch 15, on a disjoint third of nuPlan (`OFFSET=1`; 271 train + 29 val logs fetched with the token in 5.3 h), 15 epochs, 72.8k samples/epoch, 17,055 steps. Kept epochs 7 and 15. Closed-loop eval queued (13324310-25): A2 plain and A2 + R3 on tuning / held-out / fresh, compared paired against A and A + R3.
 - **Candidate Q recipe written (not built):** `container/Dockerfile.q` + `NOTICE.q`: py123d v0.1.1 + our fine-tuned checkpoint (stage as `container/assets/py123d/q/{model.pth, config.yaml from the run, PUBLIC sensor_rig_0.yaml}`) + the judge (m3, R3) + 1.10 straight-only warp skipped on judged plans, GTRS code and assets, an import check and sha256 listing at build time. Which checkpoint (A or A2) is decided by the A2 evaluation; build and verify a few days before Aman's submission date (memory: nuplan-single-shot). Both candidates will be ready: WA-JEPA `v4` (built) and Q.
 - Early A2 eval (5 of 16 runs, tuning only): A2 plain − A plain +0.009 [-0.004, +0.023], W54 / L26; A2 + R3 − A + R3 on 2 shards -0.007 [-0.025, +0.009]. Remaining runs queued behind a busy cluster.
+- **Fine-tune A2 vs A (paired, same scenes):**
+
+| | Tuning (300) | Held-out (261) |
+|---|---|---|
+| A2 plain − A plain | +0.009 [-0.004, +0.023], W54 / L26 | +0.014 [-0.002, +0.032], W36 / L30 |
+| A2 + R3 − A + R3 | -0.003 [-0.016, +0.009] | -0.015 [-0.034, +0.003] |
+| A2 + R3 − public + R3 | +0.009 [-0.011, +0.030] | +0.002 [-0.029, +0.031] |
+  - A2 alone (vs public base): tuning +0.068, held-out +0.062 (A: +0.059, +0.047). More data helps the plain model a little; with the recipe on top, A2 is not better than A.
+  - The 4 fresh-part runs failed at download: the token edit had put an inline comment in the middle of the line-continued `hf download` command, cutting off its arguments. Fixed (comment on its own line; scanned every job script for the pattern; none left) and rerun (13326362-65).
