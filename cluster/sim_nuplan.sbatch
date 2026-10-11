@@ -79,8 +79,18 @@ elif [ $DRIVER = garage ]; then
       host=localhost port=$ALPASIM_DRIVER_PORT device=cuda ${GARAGE_OVERRIDES:-} > $RUN/driver.log 2>&1 &
   READY="garage driver listening"
 elif [ $DRIVER = imagep ]; then
-# ---- driver: candidate P submission image (py123d + add-on), its own ENTRYPOINT command; HOME as in the image
+# ---- driver: a py123d submission image (candidates P, Q), its own ENTRYPOINT command; HOME as in the image
   IMG=${IMG:-$B/sandbox/p}
+  if [ -n "${IMAGE_ARCHIVE:-}" ]; then
+    # build the sandbox on the node's /local from a `docker save | gzip` archive (the dept fileset has no room;
+    # Apptainer cannot read Docker Desktop's export gzipped, so decompress first)
+    export APPTAINER_CACHEDIR=$TMPDIR/ac APPTAINER_TMPDIR=$TMPDIR/at; mkdir -p $APPTAINER_CACHEDIR $APPTAINER_TMPDIR
+    gunzip -c $IMAGE_ARCHIVE > $TMPDIR/image.tar
+    apptainer build --sandbox $TMPDIR/img docker-archive://$TMPDIR/image.tar > $RUN/sandbox.log 2>&1 \
+      || { rm -rf $TMPDIR/img; apptainer build --sandbox $TMPDIR/img oci-archive://$TMPDIR/image.tar >> $RUN/sandbox.log 2>&1; }
+    rm -f $TMPDIR/image.tar; IMG=$TMPDIR/img
+    sha256sum $IMG/opt/checkpoint/* | tee $RUN/image_checkpoint.sha256
+  fi
   apptainer exec --nv --cleanenv --writable-tmpfs --no-home \
       --env ALPASIM_DRIVER_HOST=localhost,ALPASIM_DRIVER_PORT=$ALPASIM_DRIVER_PORT \
       $IMG sh -c 'export HOME=/tmp; exec python -m garage_addons.entry ${PY123D_GARAGE_CONFIG} host=localhost port=$ALPASIM_DRIVER_PORT' \
