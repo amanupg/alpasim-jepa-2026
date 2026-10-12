@@ -9,7 +9,7 @@ Runs `py123d_garage.evaluation.alpasim.evaluate` (kesai-labs, Apache-2.0, v0.1.1
   warp helped 72 scenes and hurt 16, the losses mostly offroad in curves (LEDGER 2026-10-03).
   GARAGE_JUDGE=gtrs: the GTRS-Dense judge from the WA-JEPA driver (wajepa_challenge/judge.py) on py123d's
   plan, before the warp. GARAGE_JUDGE_RADIUS / GARAGE_JUDGE_MARGIN as WAJEPA_JUDGE_* (defaults 1 m and 1,
-  the best WA-JEPA setting). It reads the raw 1920x1080 CAM_L0/F0/R0 frames at py123d's anchor time and
+  the best WA-JEPA setting). GARAGE_JUDGE_STALL_M > 0 adds the judge's stall rescue (judge.py). It reads the raw 1920x1080 CAM_L0/F0/R0 frames at py123d's anchor time and
   ego velocity/acceleration and a drive command (GARAGE_JUDGE_COMMAND organisers|bridge) for GTRS's
   status input; py123d itself does not use any of these, so they are kept here per session.
   GARAGE_TS_SKIP_JUDGED=1: no time warp when the judge substituted a GTRS path (judge + warp together
@@ -193,6 +193,10 @@ if __name__ == "__main__":
         _judge = GtrsJudge(os.environ["GARAGE_GTRS_CHECKPOINT"], os.environ["GARAGE_GTRS_VOCAB"],
                            device=os.environ.get("GARAGE_JUDGE_DEVICE", "cuda"),
                            margin=float(os.environ.get("GARAGE_JUDGE_MARGIN", "1")),
-                           radius=float(os.environ.get("GARAGE_JUDGE_RADIUS", "1")))
+                           radius=float(os.environ.get("GARAGE_JUDGE_RADIUS", "1")),
+                           stall_m=float(os.environ.get("GARAGE_JUDGE_STALL_M", "0")),       # 0 = off
+                           stall_margin=float(os.environ.get("GARAGE_JUDGE_STALL_MARGIN", "1")),
+                           stall_min_prob=float(os.environ.get("GARAGE_JUDGE_STALL_MIN_PROB", "0.9")),
+                           stall_min_move_m=float(os.environ.get("GARAGE_JUDGE_STALL_MIN_MOVE_M", "3")))
         _install_judge()
     evaluate.main()

@@ -48,10 +48,19 @@ def vocab_poses_to_plan(poses: np.ndarray) -> np.ndarray:
 
 class GtrsJudge:
     def __init__(self, checkpoint_path: str, vocabulary_path: str, device: str = "cuda", margin: float = 0.0,
-                 radius: float = math.inf) -> None:
+                 radius: float = math.inf, stall_m: float = 0.0, stall_margin: float = 1.0,
+                 stall_min_prob: float = 0.9, stall_min_move_m: float = 3.0) -> None:
+        """stall_m > 0 enables the stall rescue: when the chosen trajectory (the policy's plan, or the
+        radius-limited GTRS pick) ends within stall_m of the ego after 4 s, the best GTRS path anywhere in the
+        vocabulary that moves >= stall_min_move_m with collision-free and drivable-area probabilities above
+        stall_min_prob is used instead, if its score beats the plan's by stall_margin. Off by default."""
         self.device = torch.device(device)
         self.margin = float(margin)
         self.radius = float(radius)
+        self.stall_m = float(stall_m)
+        self.stall_margin = float(stall_margin)
+        self.stall_min_prob = float(stall_min_prob)
+        self.stall_min_move_m = float(stall_min_move_m)
         vocabulary = load_navhard_vocabulary(vocabulary_path)
         payload = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
         state_dict = normalized_checkpoint(payload, vocabulary)
@@ -103,4 +112,19 @@ class GtrsJudge:
             "g": [round(float(sub[k][g]), 4) for k in ("no_at_fault_collisions", "drivable_area_compliance", "ego_progress")],
         }
         trajectory = vocab_poses_to_plan(vocab[g].float().cpu().numpy()) if use_gtrs else None
+        if self.stall_m > 0:
+            chosen_end = vocab[g, -1, :2] if use_gtrs else extra[-1, :2]
+            if float(torch.linalg.vector_norm(chosen_end)) < self.stall_m:
+                ok = ((sub["no_at_fault_collisions"][:n] > self.stall_min_prob)
+                      & (sub["drivable_area_compliance"][:n] > self.stall_min_prob)
+                      & (torch.linalg.vector_norm(vocab[:, -1, :2], dim=-1) >= self.stall_min_move_m))
+                moving = base[0, :n].masked_fill(~ok, -math.inf)
+                record["stall"] = True
+                if torch.isfinite(moving).any():
+                    g2 = int(moving.argmax())
+                    s2 = float(base[0, g2])
+                    record.update(s_stall=round(s2, 4), stall_end=[round(float(v), 2) for v in vocab[g2, -1, :2]])
+                    if s2 - s_w > self.stall_margin:
+                        record["use_gtrs"] = record["stall_rescue"] = True
+                        trajectory = vocab_poses_to_plan(vocab[g2].float().cpu().numpy())
         return {"trajectory": trajectory, "record": record}
