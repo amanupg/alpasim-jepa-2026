@@ -704,3 +704,8 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - Reading: py123d stays (nearly) stopped where the human moved off, and the radius-limited judge cannot replace a stationary plan with a moving one.
 - **Stall rescue (judge.py, opt-in, off by default; the built images are unaffected):** if the chosen 4 s trajectory ends < `stall_m` from the ego, use the best GTRS vocabulary path that moves >= 3 m with collision-free and drivable-area probabilities > 0.9, when its score beats the plan's by `stall_margin`. The scene score penalizes collisions, offroad, corridor and progress (not traffic lights), so moving off is rewarded unless it causes one of those.
 - Queued on tuning (13357365-70): Q + stall rescue at 1 m with margin 1 and margin 3.
+
+## 2026-10-12 Storage cleanup in alpasim-jepa (Aman approved per item; other folders not touched)
+- Inventory: 219 GB total; data/nuplan_track 173 GB (eval assets), runs 26 GB, cache/uv 9 GB, sandbox/wajepa-v2 8.6 GB, envs + weights 11 GB.
+- **Deleted (approved):** 41 dead run folders (cancelled / timed out / failed; each has a completed rerun used in the results), the timing-test checkpoints (py123d_train_probe_13249480, py123d_local_smoke_13286697), the rejected soup (py123d_soup_A_A2), and the 12-log py123d cache (data/py123d/nuplan/py123d_garage_cache; index and maps kept). Kept: fine-tune A (candidate Q's checkpoint) and A2. Fileset free 64 → 80 GB.
+- **Not deleted (offered, declined for now):** sandbox/wajepa-v2 (8.6 GB) and the held-out assets of parts 013/007/011 (~95 GB).
