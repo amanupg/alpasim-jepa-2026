@@ -2,10 +2,11 @@
 # public checkpoint (staged as container/assets/py123d/q: model.pth, the run's config.yaml, and the PUBLIC
 # resnet34_v0.1.0/sensor_rig_0.yaml: our node-local training runs export a rig without cameras), plus our add-ons
 # (src/garage_addons/entry.py): the GTRS-Dense judge (margin 3, radius 3 m) and the organisers' trajectory time warp
-# at 1.10 on near-straight plans, skipped when the judge substituted its path (LEDGER 2026-10-09/10).
+# at 1.10 on near-straight plans, skipped when the judge substituted its path (LEDGER 2026-10-09/10), and the judge's
+# stall rescue (1 m, margin 1; LEDGER 2026-10-13: +0.030 over Q without it on 754 tuning/held-out/fresh scenes).
 # Mirrors py123d's lib/alpasim/tools/submission.Dockerfile.
 # Build (from alpasim-jepa/; inputs staged under container/assets and ext/py123d_garage):
-#   docker buildx build --platform linux/amd64 --load -f container/Dockerfile.p \
+#   docker buildx build --platform linux/amd64 --load -f container/Dockerfile.q \
 #     --build-context run=container/assets/py123d/q --build-context gtrs=container/assets/gtrs --build-context wheels=container/assets/wheels \
 #     --build-context addons=src --build-context legal=container -t local/q:<n> ext/py123d_garage
 FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
@@ -50,6 +51,7 @@ RUN cd /opt/addons && python -c "import garage_addons, wajepa_challenge.judge, w
 ARG GIT_HASH=unknown
 ENV PYTHONPATH=/opt/addons GARAGE_TIME_SCALE=1.10 GARAGE_TS_MAX_TURN_DEG=10 GARAGE_TS_SKIP_JUDGED=1 \
     GARAGE_JUDGE=gtrs GARAGE_JUDGE_MARGIN=3 GARAGE_JUDGE_RADIUS=3 GARAGE_JUDGE_COMMAND=organisers \
+    GARAGE_JUDGE_STALL_M=1 GARAGE_JUDGE_STALL_MARGIN=1 GARAGE_JUDGE_STALL_MIN_PROB=0.9 GARAGE_JUDGE_STALL_MIN_MOVE_M=3 \
     GARAGE_GTRS_CHECKPOINT=/opt/assets/gtrs/gtrs_dense_resnet_sim_reward_navhard.ckpt \
     GARAGE_GTRS_VOCAB=/opt/assets/gtrs/navsim_16384.npy \
     PY123D_GARAGE_CONFIG="hydra.run.dir=/tmp/alpasim_driver \

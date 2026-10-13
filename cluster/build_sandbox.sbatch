@@ -15,4 +15,4 @@ B=/insomnia001/depts/edu/users/au2327/alpasim-jepa; cd $B
 export APPTAINER_CACHEDIR=$B/cache/apptainer APPTAINER_TMPDIR=${TMPDIR:-/tmp}
 rm -rf $OUT; mkdir -p $(dirname $OUT)
 apptainer build --sandbox $OUT docker-archive://$B/$TAR
-du -sh $OUT; ls $OUT/app
+du -sh $OUT; ls $OUT/app $OUT/opt 2>/dev/null || true
