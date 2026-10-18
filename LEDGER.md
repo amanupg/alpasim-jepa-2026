@@ -722,3 +722,9 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Stall 5 m, tuning (vs `qstall3m1`; 13396070-72):** **+0.023 [+0.013, +0.034]**, W19 / L1, big W5 / L0, no new zero-score failures (108 rescues of 240 stalls vs 58 of 158 at 3 m). Trend continues: queued 5 m on held-out 013/007/011 + fresh 003/014 (13396953-57) and 8 m on tuning (13396958-60).
 - `local/q:3` (3 m; image id `0d13aceb9285`, 12.79 GB per `docker image inspect`; `docker images` now shows 36GB for q:2 and q:3 alike, a display artefact) uploaded (sha256 `7c48ac7b…`, equal on both ends); closed-loop check on L40 queued (13396914-15).
 - **`local/q:3` verified in closed loop (13396914-15, L40 as the tested runs):** checkpoint hashes inside equal; vs `qstall3m1`: **001 100/100 and 010 100/100 scenes identical** (means 0.9024, 0.7813); 42 stall rescues logged. Archive deleted. **Q (planned tag `v6`) = `local/q:3`**, unless 5 m confirms.
+
+## 2026-10-18 Stall 5 m / 8 m results
+- **Stall 5 m vs 3 m (paired):** tuning +0.023 [+0.013, +0.034] (W19 / L1); **held-out +0.011 [-0.000, +0.023]** (W15 / L2; new: 1 collision, 1 corridor exit; fixed 1 offroad); fresh 003 +0.012 [+0.004, +0.022] (W5 / L0); fresh 014 timed out in the input stage (part download, 3 h). All but 014: **+0.017 [+0.010, +0.024]**, W39 / L3. Held-out is weaker than for 1 m and 3 m and its interval touches zero, so **5 m is not adopted yet**; 014 rerun with 4 h queued.
+- **Stall 8 m vs 5 m, tuning:** -0.000 [-0.009, +0.007], W14 / L2, 2 new zero-score failures (1 collision, 1 offroad). The gain stops between 3 and 5 m; 8 m is rejected.
+- Means over the 754 scenes: Q without stall 0.809, Q + stall 3 m (`q:3`) 0.852 (+0.042 [+0.032, +0.054], W57 / L3).
+- Fileset at **23 GB free (100%)**; this folder is 207 GB (unchanged: held-out assets, envs, runs).
