@@ -30,7 +30,7 @@ if [ -n "${LOCAL_PART:-}" ]; then
   # /local from the shared trajdata cache + configs and MTGS asset part LOCAL_PART, and drive only the scenes of
   # that part that are in none of our shared track copies (so never used for tuning or earlier checks).
   L=${TMPDIR:?}/nuplan_track; mkdir -p $L/navtest
-  cp -r $B/data/nuplan_track/nuplan_test $L/; cp -r $B/data/nuplan_track/navtest/configs $L/navtest/
+  cp -rL $B/data/nuplan_track/nuplan_test $L/; cp -rL $B/data/nuplan_track/navtest/configs $L/navtest/   # -L: both are symlinks into ../alpasim (dedupe 2026-10-18)
   # hf resumes interrupted transfers (a piped curl stream was cut off after ~3 GB on 2026-10-08)
   for attempt in 1 2 3; do
     # token file path only, never the token itself (Aman 2026-10-10); high-performance xet for speed
