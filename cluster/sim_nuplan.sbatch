@@ -30,7 +30,9 @@ if [ -n "${LOCAL_PART:-}" ]; then
   # /local from the shared trajdata cache + configs and MTGS asset part LOCAL_PART, and drive only the scenes of
   # that part that are in none of our shared track copies (so never used for tuning or earlier checks).
   L=${TMPDIR:?}/nuplan_track; mkdir -p $L/navtest
-  cp -rL $B/data/nuplan_track/nuplan_test $L/; cp -rL $B/data/nuplan_track/navtest/configs $L/navtest/   # -L: both are symlinks into ../alpasim (dedupe 2026-10-18)
+  # trajdata cache + configs: symlinks to ../alpasim's copies (dedupe 2026-10-18; read-only, bound into the services
+  # via --extra-bind below). Copying the 85k small files from GPFS took over 2 h and made earlier fresh runs time out.
+  ln -s $A/data/nuplan_track/nuplan_test $L/nuplan_test; ln -s $A/data/nuplan_track/navtest/configs $L/navtest/configs
   # hf resumes interrupted transfers (a piped curl stream was cut off after ~3 GB on 2026-10-08)
   for attempt in 1 2 3; do
     # token file path only, never the token itself (Aman 2026-10-10); high-performance xet for speed
@@ -167,7 +169,8 @@ apptainer exec -B $B $SIF /repo/.venv/bin/python -c "import yaml,json; json.dump
 # Slurm sets TMPDIR=/local/slurm-job-N, which the containers cannot see (warp's NVRTC kernel build
 # failed with 'cannot open temporary file'): use /tmp, which apptainer binds
 TMPDIR=/tmp python3 $B/src/compose_apptainer.py $RUN/docker-compose.json --sif-dir $A/sandbox --repo-host $REPO \
-  --logdir $RUN/svc-logs --cache-dir $B/cache/containers --timeout 3600   # renderer start can exceed 30 min on some nodes (ins038/039, 2026-10-02)
+  --logdir $RUN/svc-logs --cache-dir $B/cache/containers --timeout 3600 \
+  $([ "$NUPLAN_ROOT" != $A/data/nuplan_track ] && echo --extra-bind $A/data/nuplan_track)   # symlink targets (our nuplan_test, navtest/configs); renderer start can exceed 30 min (ins038/039, 2026-10-02)
 RC=$?
 echo "runtime exit $RC"
 python3 $A/src/summarize_run.py $RUN
