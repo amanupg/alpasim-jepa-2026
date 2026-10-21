@@ -754,3 +754,17 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **`v6` warmup submitted (Aman, 2026-10-21 19:12 UTC):** track `nuplan-warmup`, submission_id `4b849e1d-970a-496a-8fb1-2d7a996033f3`, QUEUED 2/2. Last nuPlan warmup of the 30-day window; no official slot used. Official submit follows if it succeeds.
 - **`v6` warmup SUCCEEDED (4b849e1d, 20:25-20:37 UTC):** resolved digest `sha256:0d13aceb…` (the verified image), 32/32 rollouts valid and scored, wall time **268.5 s of 2,700 s** (throughput check passed with a 2,431 s margin). Ready for the official nuPlan submit.
 - **`v6` OFFICIAL nuPlan submission (Aman, 2026-10-21):** submission_id `9ec0413f-42e9-4cf0-9c27-d5380339fa84`, QUEUED 1/1, default controller gains. October official slots: 1 left after this (shared with PAI; held until ~Oct 27-28 for whichever track has the better shot at #1).
+
+## 2026-10-21 **v6 official result: scene 0.782, PCS 1131, rank 48 — worse than v0.3 and the public checkpoint**
+| nuPlan official | PCS [95%] | rank interval | scene | at-fault distance | dist to GT |
+|---|---|---|---|---|---|
+| public py123d 0014 (other teams' entries) | ~1485 | | 0.848 | | |
+| our v0.3 (Alpamayo, 09-29) | 1298 [1233-1363] | 37-44 | 0.827 | 0.234 | 1.278 |
+| **v6 = q:3 (9ec0413f)** | **1131 [1076-1186]** | **46-60** | **0.782** | 0.324 | **1.766** |
+| SymPhi (best eligible) | 1948 | 1-5 | 0.944 | 0.875 | 0.747 |
+| nuVAIL (new 10-21) | 1858 | 1-10 | 0.947 | 0.675 | 0.556 |
+| Lucifer AI | 1711 | 7-20 | 0.890 | 0.528 | 0.737 |
+- Run: 1000/1000 rollouts, 1,189 s of 3,000 s. The image was correct (verified digest).
+- **Expected ~0.92 from local; got 0.782 (-0.066 vs the public checkpoint our local said we beat by +0.128).** The local gain was dominated by components (GTRS-Dense critic, time warp, stall rescue that defers to the critic) whose family this ledger already showed to be flattered by public navtest: on 2026-10-02, SimScale GTRS scored 0.53-0.76 officially vs 0.73-0.89 locally, and every NAVSIM-trained driver ranked below go-straight officially. I applied the local gain anyway; that was the error. dist_to_gt 1.77 (vs 0.6-0.75 for py123d entries, ~2.2 for the NAVSIM samples) points the same way: the critic's substituted paths and the warp pull the car off the recorded path.
+- **Lesson (hard rule from now on):** local navtest gains from anything NAVSIM-trained or navtest-tuned do not predict the official score. Only components trained on nuPlan train/val (like the fine-tune alone) have a chance of transferring, and even they need an official data point before being stacked.
+- Not knowable from this one run: how much of the loss is the critic vs the time warp vs stall rescue, and whether the fine-tune alone helps officially.
