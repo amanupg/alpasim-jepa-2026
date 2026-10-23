@@ -14,7 +14,6 @@ set -o pipefail
 B=/insomnia001/depts/edu/users/au2327/alpasim-jepa; A=/insomnia001/depts/edu/users/au2327/alpasim
 NR=/insomnia001/depts/edu/users/au2327/nureasoning
 source $B/cluster/fd_env.sh || exit 5
-module load cuda/12.3 2>/dev/null
 nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
 mkdir -p $TMPDIR/cap && tar -xf $A/data/ft_capture/${CAP:-cap_c1_13609283.tar} -C $TMPDIR/cap
 HUB=$NR/.cache/hf/hub

@@ -14,7 +14,7 @@ set -xo pipefail
 B=/insomnia001/depts/edu/users/au2327/alpasim-jepa
 source $B/cluster/fd_env.sh || exit 5
 nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
-module load cuda/12.3 2>/dev/null; which nvcc; nvcc --version | tail -2
+which nvcc gcc; nvcc --version | tail -2; gcc --version | head -1
 export HOME=$TMPDIR TORCH_EXTENSIONS_DIR=$TMPDIR/torch_ext
 $FDPY - <<'PY'
 import torch, transformers, vllm
