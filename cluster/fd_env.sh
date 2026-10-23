@@ -31,5 +31,5 @@ if [ ! -x $CH/bin/nvcc ]; then
   for so in $SP/cuda_runtime/lib/*; do ln -sf $so $CH/lib64/; done
   ln -sf $(ls $SP/cuda_runtime/lib/libcudart.so.* | head -1) $CH/lib64/libcudart.so
 fi
-export CUDA_HOME=$CH PATH=$CH/bin:$PATH
+export CUDA_HOME=$CH PATH=$CH/bin:$FDENV/bin:$PATH   # $FDENV/bin: ninja for the JIT build
 module load gcc/11.4.0 2>/dev/null
