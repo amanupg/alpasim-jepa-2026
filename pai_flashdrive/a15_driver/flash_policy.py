@@ -33,6 +33,27 @@ import torch
 LOGGER = logging.getLogger("a15_flash_policy")
 
 
+def _load_prebuilt_rotation_kernel() -> None:
+    """A15_PARO_KERNEL=<paroquant_rotation.so>: load the prebuilt rotation kernel (pai_flashdrive/kernel, built with
+    nvcc 12.8 for sm 8.0/8.6/8.9/9.0) instead of paroquant's JIT build, which needs nvcc on the node (Insomnia's
+    compute nodes have none, and the official image runs offline). The .so registers torch.ops.rotation.rotate via
+    TORCH_LIBRARY; a stub module then satisfies FlashDrive's `import paroquant.kernels.cuda`."""
+    import sys
+    import types
+    so = os.environ.get("A15_PARO_KERNEL")
+    if not so or "paroquant.kernels.cuda" in sys.modules:
+        return
+    torch.ops.load_library(so)
+    try:
+        @torch.library.register_fake("rotation::rotate")
+        def _fake(x, idx_ij, theta, scales=None, group_size=128):
+            return torch.empty_like(x)
+    except RuntimeError:
+        pass
+    sys.modules["paroquant.kernels.cuda"] = types.ModuleType("paroquant.kernels.cuda")
+    LOGGER.info("loaded prebuilt rotation kernel %s", so)
+
+
 class FlashAlpamayo15Policy:
     """predict(frames, cam_slots, hist_xyz, hist_rot) -> (xy (64,2), yaw (64,), info), like Alpamayo15Policy."""
 
@@ -70,6 +91,7 @@ class FlashAlpamayo15Policy:
         model.traj_start_token_id = model.tokenizer.convert_tokens_to_ids("<|traj_future_start|>")
         patch_backbone(model)
         model.setup_torch_compile(compile_mode)
+        _load_prebuilt_rotation_kernel()
         model.setup_paroquant(paro_dir)          # CPU surgery + CPU checkpoint load (model is still on the CPU)
         model.setup_expert_fusion()
         t1 = time.time()

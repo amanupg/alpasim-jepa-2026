@@ -15,14 +15,16 @@ B=/insomnia001/depts/edu/users/au2327/alpasim-jepa
 source $B/cluster/fd_env.sh || exit 5
 nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
 which nvcc gcc; nvcc --version | tail -2; gcc --version | head -1
-export HOME=$TMPDIR TORCH_EXTENSIONS_DIR=$TMPDIR/torch_ext
+export HOME=$TMPDIR TORCH_EXTENSIONS_DIR=$TMPDIR/torch_ext A15_PARO_KERNEL=$B/pai_flashdrive/kernel/paroquant_rotation.so
 $FDPY - <<'PY'
 import torch, transformers, vllm
 print("torch", torch.__version__, "cuda", torch.version.cuda, "transformers", transformers.__version__, "vllm", vllm.__version__)
 print("gpu", torch.cuda.get_device_name(), torch.cuda.get_device_capability())
 import alpamayo1_5, alpamayo_r1; print("alpamayo packages ok")
 import flashdrive; print("flashdrive import ok")
-import paroquant.kernels.cuda; print("paroquant rotation kernel ok:", hasattr(torch.ops.rotation, "rotate"))
+import sys; sys.path.insert(0, "/insomnia001/depts/edu/users/au2327/alpasim-jepa/pai_flashdrive")
+from a15_driver.flash_policy import _load_prebuilt_rotation_kernel; _load_prebuilt_rotation_kernel()
+import paroquant.kernels.cuda; print("rotation kernel ok:", hasattr(torch.ops.rotation, "rotate"))
 from flashdrive.quantization import Rotation
 r = Rotation(256).cuda(); x = torch.randn(4, 256, device="cuda", dtype=torch.float16)
 print("rotation identity max err", float((r(x) - x).abs().max()))

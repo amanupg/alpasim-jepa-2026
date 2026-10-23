@@ -21,7 +21,7 @@ export A15_MODEL_DIR=$B/weights/flashdrive/Alpamayo-1.5-10B A15_PARO_DIR=$B/weig
 export A15_REF_MODEL_DIR=$(ls -d $HUB/models--nvidia--Alpamayo-1.5-10B/snapshots/*/ | head -1)
 export A15_VLM_DIR=$(ls -d $HUB/models--Qwen--Qwen3-VL-8B-Instruct/snapshots/*/ | head -1)
 export A15_PROCESSOR_DIR=$(ls -d $HUB/models--Qwen--Qwen3-VL-2B-Instruct/snapshots/*/ | head -1)
-export HOME=$TMPDIR TORCH_EXTENSIONS_DIR=$TMPDIR/torch_ext HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONNOUSERSITE=1
+export HOME=$TMPDIR TORCH_EXTENSIONS_DIR=$TMPDIR/torch_ext A15_PARO_KERNEL=$B/pai_flashdrive/kernel/paroquant_rotation.so HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONNOUSERSITE=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True TOKENIZERS_PARALLELISM=false
 mkdir -p $B/runs/fd_check
 $FDPY -u $B/pai_flashdrive/check_policy.py --samples $TMPDIR/cap --n ${N:-40} $([ "${REFERENCE:-0}" = 1 ] && echo --reference) \
