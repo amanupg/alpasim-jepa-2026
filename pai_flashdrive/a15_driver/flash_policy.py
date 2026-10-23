@@ -33,6 +33,27 @@ import torch
 LOGGER = logging.getLogger("a15_flash_policy")
 
 
+def _load_paro_full(model, paro_dir: str) -> None:
+    """ParoQuantMixin.setup_paroquant's surgery, then a strict load of the whole -PARO checkpoint: every persistent
+    tensor of the model must come from it and nothing may be left over (setup_paroquant only warns)."""
+    import glob
+
+    from flashdrive.quantization import BF16RotateLinearWrapper, RotateLinearW4A8, _iter_linears
+    from safetensors.torch import load_file
+    import paroquant.kernels.cuda  # noqa: F401  (stub if the prebuilt kernel was loaded)
+    for layer in model.vlm.model.language_model.layers:
+        for parent, name, linear in list(_iter_linears(layer)):
+            setattr(parent, name, BF16RotateLinearWrapper(RotateLinearW4A8(linear.in_features, linear.out_features)))
+    sd = {}
+    for shard in sorted(glob.glob(os.path.join(paro_dir, "model*.safetensors"))):
+        sd.update(load_file(shard, device="cpu"))
+    n = len(sd)
+    missing, unexpected = model.load_state_dict(sd, strict=False)
+    del sd
+    assert not missing and not unexpected, f"PARO load not clean: missing {missing[:5]}, unexpected {unexpected[:5]}"
+    LOGGER.info("loaded %d tensors from %s (strict)", n, paro_dir)
+
+
 def _load_prebuilt_rotation_kernel() -> None:
     """A15_PARO_KERNEL=<paroquant_rotation.so>: load the prebuilt rotation kernel (pai_flashdrive/kernel, built with
     nvcc 12.8 for sm 8.0/8.6/8.9/9.0) instead of paroquant's JIT build, which needs nvcc on the node (Insomnia's
@@ -52,6 +73,23 @@ def _load_prebuilt_rotation_kernel() -> None:
         pass
     sys.modules["paroquant.kernels.cuda"] = types.ModuleType("paroquant.kernels.cuda")
     LOGGER.info("loaded prebuilt rotation kernel %s", so)
+
+
+class _Ticker:
+    """Per-stage GPU time in ms (A15_FD_TIMING=1; synchronizes, so only for measurements)."""
+
+    def __init__(self, on: bool) -> None:
+        self.on, self.ms = on, {}
+        if on:
+            torch.cuda.synchronize()
+            self.t = time.perf_counter()
+
+    def __call__(self, name: str) -> None:
+        if self.on:
+            torch.cuda.synchronize()
+            t = time.perf_counter()
+            self.ms[name] = round((t - self.t) * 1000, 1)
+            self.t = t
 
 
 class FlashAlpamayo15Policy:
@@ -80,10 +118,13 @@ class FlashAlpamayo15Policy:
         cfg = Alpamayo1_5.config_class(**d)
         cfg._attn_implementation = "sdpa"
         Alpamayo1_5._supports_sdpa = True
-        model, info = Alpamayo1_5.from_pretrained(model_dir, config=cfg, dtype=torch.bfloat16,
-                                                  output_loading_info=True, low_cpu_mem_usage=True)
-        bad = {k: v for k, v in info.items() if v}
-        assert not bad, f"loading info not clean: { {k: list(v)[:5] for k, v in bad.items()} }"
+        # The -PARO checkpoint holds the whole model (quantized language-model linears plus every other tensor in
+        # bf16), so the model is built empty on the CPU (no random init), the language-model linears are swapped for
+        # the W4A8 modules, and everything is filled from it: the 22 GB bf16 base is never read (its LM linears would
+        # be thrown away; reading it from the shared fileset took ~13 of the first load's 17.5 min).
+        from transformers.modeling_utils import no_init_weights
+        with no_init_weights():
+            model = Alpamayo1_5._from_config(cfg, torch_dtype=torch.bfloat16)
         model.eval()
         # FlashDrive's composition (flashdrive.from_pretrained) minus streaming and DFlash, and on the CPU first
         model.__class__ = type(f"FlashDrive{Alpamayo1_5.__name__}", (FlashDriveMixin, Alpamayo1_5), {})
@@ -92,7 +133,7 @@ class FlashAlpamayo15Policy:
         patch_backbone(model)
         model.setup_torch_compile(compile_mode)
         _load_prebuilt_rotation_kernel()
-        model.setup_paroquant(paro_dir)          # CPU surgery + CPU checkpoint load (model is still on the CPU)
+        _load_paro_full(model, paro_dir)         # CPU surgery + every tensor from the -PARO checkpoint (strict)
         model.setup_expert_fusion()
         t1 = time.time()
         if embed_cpu:
@@ -108,8 +149,10 @@ class FlashAlpamayo15Policy:
         self._seed = seed
         self._diff = {"inference_step": int(steps), "cache_steps": list(cache_steps), "int_method": "euler_with_cache"}
         self._len = None
+        self._timing = os.environ.get("A15_FD_TIMING", "0") == "1"
+        self.last_timing = None
         self.last_choice, self.last_costs, self.last_ends = 0, None, None
-        LOGGER.info("FlashDrive Alpamayo 1.5 loaded in %.0fs (W4A8 + fusion %.0fs), compile %s, %d steps cache %s, "
+        LOGGER.info("FlashDrive Alpamayo 1.5 loaded in %.0fs (build + PARO load + fusion %.0fs), compile %s, %d steps cache %s, "
                     "reserved %.2f GiB", time.time() - t0, t1 - t0, compile_mode, steps, list(cache_steps),
                     torch.cuda.memory_reserved() / 2**30)
 
@@ -155,7 +198,9 @@ class FlashAlpamayo15Policy:
             if self._len != ids.shape[1]:
                 self._setup_length(ids, grid)
             L = ids.shape[1]
+            tick = _Ticker(self._timing)
             image_embeds, deepstack = m._encode(td["pixel_values"], grid)
+            tick("encode")
             embeds, image_mask = m._embed_tokens_with_images(ids, image_embeds)
             pos, _ = m.vlm.model.get_rope_index(ids, grid, None, None)
             pad = m.max_cache_len - L
@@ -166,10 +211,13 @@ class FlashAlpamayo15Policy:
                                        cache_position=torch.arange(L, device=ids.device),
                                        visual_pos_masks=image_mask[..., 0], deepstack_visual_embeds=deepstack,
                                        streaming_attention_mask=None, use_cache=True)
+            tick("prefill")
             xyz, rot = m._sample_actions_and_format(
                 action_start_pos=torch.tensor([L], device=ids.device), num_traj_samples=1, num_traj_sets=1,
                 ego_history_xyz=hx, ego_history_rot=hr, output_ids=ids, diffusion_kwargs=self._diff,
                 return_extra=False)
+            tick("action")
+            self.last_timing = tick.ms
         xy = xyz[0, 0, 0, :, :2].float().cpu().numpy()
         r = rot[0, 0, 0].float()
         yaw = torch.atan2(r[:, 1, 0], r[:, 0, 0]).cpu().numpy()

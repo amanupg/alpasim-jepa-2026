@@ -36,7 +36,7 @@ def nvsmi_mib() -> int:
 
 
 def run(policy, samples, label):
-    plans, lat = [], []
+    plans, lat, stages = [], [], []
     for i, path in enumerate(samples):
         z = load_sample(path)                       # dict: frames (n_cam, 4, 3, H, W) uint8, slots, hist_*, fut_*
         frames = z["frames"]
@@ -47,9 +47,13 @@ def run(policy, samples, label):
         torch.cuda.synchronize(); dt = time.perf_counter() - t0
         if i >= 2:                                  # first two calls include compile / warm-up
             lat.append(dt)
+            if getattr(policy, "last_timing", None):
+                stages.append(policy.last_timing)
         plans.append(xy)
         if i < 3:
             print(f"[{label}] call {i}: {dt * 1000:.0f} ms", flush=True)
+    if stages:
+        print(f"[{label}] stage ms (mean): " + json.dumps({k: round(float(np.mean([s[k] for s in stages])), 1) for k in stages[0]}), flush=True)
     return np.stack(plans), np.array(lat)
 
 
