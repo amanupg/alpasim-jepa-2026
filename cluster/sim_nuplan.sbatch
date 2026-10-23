@@ -80,8 +80,26 @@ elif [ $DRIVER = garage ]; then
       policy_config.evaluation_sensor_rig_file=${GARAGE_RIG:-$W/sensor_rig_0.yaml} \
       host=localhost port=$ALPASIM_DRIVER_PORT device=cuda ${GARAGE_OVERRIDES:-} > $RUN/driver.log 2>&1 &
   READY="garage driver listening"
+elif [ $DRIVER = garage2 ]; then
+# ---- driver: py123d_garage v0.2.2 (kesai-labs, Apache-2.0) natively, from a node-local env (cluster/garage2_env.sh), with
+#      its released v0.2.0 checkpoints; the same module and config as the N submission images. For fast A/B of driver
+#      settings and checkpoints:
+#      G2_CKPTS="<file> [<file> ...]" (several = ensemble, plans averaged; default joint64 posttrain seed 0),
+#      G2_RIG (default the checkpoint dir's sensor_rig_nuplan.yaml), G2_OVERRIDES (driver settings, e.g. route_memory=true)
+  source $B/cluster/garage2_env.sh || exit 5
+  V2=$B/weights/py123d/v0.2.0/ltf-base-joint64-68M/posttrain
+  read -ra _ck <<< "${G2_CKPTS:-$V2/model_0.pth}"
+  [ -f $(dirname ${_ck[0]})/config.yaml ] || { echo "no config.yaml next to ${_ck[0]}"; exit 5; }
+  env PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 HOME=$RUN/garage_home OMP_NUM_THREADS=8 MPLCONFIGDIR=$TMPDIR/mpl \
+      $G2PY -m py123d_garage.evaluation.alpasim.evaluate hydra.run.dir=$RUN/garage \
+      "policy_config.evaluation_checkpoint_files=[$(IFS=,; echo "${_ck[*]}")]" \
+      policy_config.evaluation_sensor_rig_file=${G2_RIG:-$(dirname ${_ck[0]})/sensor_rig_nuplan.yaml} \
+      host=localhost port=$ALPASIM_DRIVER_PORT ${G2_OVERRIDES:-} > $RUN/driver.log 2>&1 &
+  READY="garage driver listening"
 elif [ $DRIVER = imagep ]; then
-# ---- driver: a py123d submission image (candidates P, Q), its own ENTRYPOINT command; HOME as in the image
+# ---- driver: a py123d submission image (candidates P, Q, N), its own ENTRYPOINT command; HOME as in the image.
+#      IMAGE_MODULE: the image's driver module; default garage_addons.entry if the image has our add-ons (P, Q), else
+#      py123d's own py123d_garage.evaluation.alpasim.evaluate (N, py123d v0.2)
   IMG=${IMG:-$B/sandbox/p}
   if [ -n "${IMAGE_ARCHIVE:-}" ]; then
     # build the sandbox on the node's /local from a `docker save | gzip` archive (the dept fileset has no room;
@@ -95,7 +113,8 @@ elif [ $DRIVER = imagep ]; then
   fi
   apptainer exec --nv --cleanenv --writable-tmpfs --no-home \
       --env ALPASIM_DRIVER_HOST=localhost,ALPASIM_DRIVER_PORT=$ALPASIM_DRIVER_PORT \
-      $IMG sh -c 'export HOME=/tmp; exec python -m garage_addons.entry ${PY123D_GARAGE_CONFIG} host=localhost port=$ALPASIM_DRIVER_PORT' \
+      --env IMAGE_MODULE=${IMAGE_MODULE:-$([ -d $IMG/opt/addons/garage_addons ] && echo garage_addons.entry || echo py123d_garage.evaluation.alpasim.evaluate)} \
+      $IMG sh -c 'export HOME=/tmp; exec python -m $IMAGE_MODULE ${PY123D_GARAGE_CONFIG} host=localhost port=$ALPASIM_DRIVER_PORT' \
       > $RUN/driver.log 2>&1 &
   READY="garage driver listening"
 elif [ $DRIVER = image ]; then
