@@ -1,0 +1,52 @@
+# nuPlan driver, candidate N1: py123d_garage v0.2.2 (kesai-labs, Apache-2.0) @ ad6cb51 with its released v0.2.0
+# checkpoint ltf-base-joint64-68M posttrain seed 0 (the recommended seed; sha256 d7113ef3...), unchanged. No add-ons:
+# after v6 (NAVSIM-trained judge, 0.782 officially) the first v0.2 entry is the released model as is, for an official
+# calibration point (LEDGER 2026-10-23).
+# Mirrors py123d's lib/alpasim/tools/submission.Dockerfile; only change: uv from PyPI instead of ghcr.io.
+# Build (from alpasim-jepa/):
+#   docker buildx build --platform linux/amd64 --load -f container/Dockerfile.n \
+#     --build-context run=container/assets/py123d/n_seed0 --build-context rig=container/assets/py123d/n \
+#     --build-context wheels=container/assets/wheels_e121e59 --build-context legal=container \
+#     --build-arg CHECKPOINT_FILES="[/opt/checkpoint/model_0.pth]" --build-arg SENSOR_RIG_FILE=sensor_rig_nuplan.yaml \
+#     --build-arg GIT_HASH=ad6cb51 -t local/n:<n> ext/py123d_garage_v2
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+
+ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
+    HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TORCH_HOME=/tmp/torch
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3.12 python3.12-venv python3-pip git libgl1 libglib2.0-0 ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3.12 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}" UV_LINK_MODE=copy
+RUN /opt/venv/bin/pip install --no-cache-dir uv==0.8.24   # py123d copies uv 0.8 from ghcr.io; PyPI avoids that registry
+
+COPY pyproject.toml /opt/py123d-garage/pyproject.toml
+RUN uv pip install --python /opt/venv/bin/python -r /opt/py123d-garage/pyproject.toml --extra alpasim
+
+COPY . /opt/py123d-garage
+RUN uv pip install --python /opt/venv/bin/python --no-deps /opt/py123d-garage
+
+COPY --from=wheels . /tmp/wheels
+RUN uv pip install --python /opt/venv/bin/python --find-links /tmp/wheels alpasim-grpc && rm -rf /tmp/wheels \
+    && python -c "import alpasim_grpc, torch, py123d_garage; print('deps ok', torch.__version__, alpasim_grpc.__version__)"
+
+ARG CHECKPOINT_FILES
+ARG SENSOR_RIG_FILE
+COPY --from=run . /opt/checkpoint/
+COPY --from=rig ${SENSOR_RIG_FILE} /opt/checkpoint/sensor_rig.yaml
+COPY --from=legal NOTICE.n /opt/NOTICE
+RUN sha256sum /opt/checkpoint/*
+
+ARG GIT_HASH=unknown
+ARG DRIVER_OVERRIDES=""
+ENV PY123D_GARAGE_CONFIG="\
+hydra.run.dir=/tmp/alpasim_driver \
+policy_config.evaluation_checkpoint_files=${CHECKPOINT_FILES} \
+policy_config.evaluation_sensor_rig_file=/opt/checkpoint/sensor_rig.yaml \
+git_hash=${GIT_HASH} \
+${DRIVER_OVERRIDES}"
+
+ENV HOME=/tmp MPLCONFIGDIR=/tmp/matplotlib OMP_NUM_THREADS=8
+ENTRYPOINT ["sh", "-c", "exec python -m py123d_garage.evaluation.alpasim.evaluate ${PY123D_GARAGE_CONFIG} host=\"${ALPASIM_DRIVER_HOST:-0.0.0.0}\" port=\"${ALPASIM_DRIVER_PORT:-6789}\" \"$@\"", "sh"]
