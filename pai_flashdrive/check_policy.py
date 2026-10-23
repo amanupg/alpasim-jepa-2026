@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -37,9 +38,10 @@ def nvsmi_mib() -> int:
 def run(policy, samples, label):
     plans, lat = [], []
     for i, path in enumerate(samples):
-        frames, z = load_sample(path)
-        hx = torch.from_numpy(z["hist_xyz"]).reshape(1, 1, -1, 3)
-        hr = torch.from_numpy(z["hist_rot"]).reshape(1, 1, -1, 3, 3)
+        z = load_sample(path)                       # dict: frames (n_cam, 4, 3, H, W) uint8, slots, hist_*, fut_*
+        frames = z["frames"]
+        hx = torch.from_numpy(np.asarray(z["hist_xyz"])).reshape(1, 1, -1, 3)
+        hr = torch.from_numpy(np.asarray(z["hist_rot"])).reshape(1, 1, -1, 3, 3)
         torch.cuda.synchronize(); t0 = time.perf_counter()
         xy, yaw, _ = policy.predict(frames, [int(s) for s in z["slots"]], hx, hr)
         torch.cuda.synchronize(); dt = time.perf_counter() - t0
@@ -58,6 +60,7 @@ def ade(a, b):
 
 
 def main():
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
     ap = argparse.ArgumentParser()
     ap.add_argument("--samples", required=True)
     ap.add_argument("--n", type=int, default=40)
