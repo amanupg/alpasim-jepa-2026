@@ -77,7 +77,8 @@ cache() {
     training@plan=py123d_garage.config.presets.training.latent_transfuser:nuplan_posttrain \
     hydra.run.dir=$T/cache_run_$1 shard_index=0 shard_count=1 cache_id=${SLURM_JOB_ID}_$1 \
     dataloader_config.num_workers=$CPUS) > $RUN/cache_$1.log 2>&1 || { echo "cache $1 failed:"; tail -5 $RUN/cache_$1.log; return 1; }
-  grep -h "Cached" $RUN/cache_$1.log | cut -c1-200
+  # no "Cached" line is normal when a prefetched batch was already picked up by the previous cache run
+  grep -h "Cached" $RUN/cache_$1.log | cut -c1-200 || echo "batch $1: nothing new to cache"
 }
 mapfile -t BL < batches.txt
 t0=$(date +%s); fetch "${BL[0]}" 0
