@@ -11,6 +11,7 @@ if [ ! -x $G2ENV/bin/python ]; then
     && ~/.local/bin/uv pip install -q -p $G2ENV/bin/python -r $B/ext/py123d_garage_v2/pyproject.toml --extra alpasim \
     && ~/.local/bin/uv pip install -q -p $G2ENV/bin/python --no-deps $B/ext/py123d_garage_v2 \
     && ~/.local/bin/uv pip install -q -p $G2ENV/bin/python --find-links $B/container/wheels_e121e59 alpasim-grpc \
+    && ~/.local/bin/uv pip install -q -p $G2ENV/bin/python "huggingface_hub[hf_xet]" \
     || { echo "g2env build failed"; return 5 2>/dev/null || exit 5; }
   echo "g2env built on node-local $G2ENV in $(( $(date +%s) - t0 )) s: $($G2ENV/bin/python -c 'import torch, py123d_garage, alpasim_grpc; print("torch", torch.__version__, "alpasim_grpc", alpasim_grpc.__version__)')"
 fi
