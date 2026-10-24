@@ -98,7 +98,7 @@ INIT=${INIT:-$B/weights/py123d/v0.2.0/ltf-base-joint64-68M/posttrain/model_0.pth
 unset SLURM_TRES_PER_TASK
 srun --kill-on-bad-exit=1 -n $GPUS --cpus-per-task=${SLURM_CPUS_PER_TASK:-24} $PY -m py123d_garage.training.train \
   training=py123d_garage.config.presets.training.latent_transfuser:nuplan_posttrain \
-  hydra.run.dir=$RUN num_seeds=1 "initial_weights_files=[$INIT]" initial_weights_strict=true \
+  hydra.run.dir=$RUN num_seeds=1 "initial_weights_files=[$INIT]" initial_weights_strict=true wandb_config.enabled=false \
   lightning_trainer_config.devices=$GPUS lightning_trainer_config.num_nodes=1 \
   lightning_trainer_config.max_epochs=${EPOCHS:-7} ${LR:+optimizer_config.learning_rate=$LR} \
   dataloader_config.batch_size=$((BATCH / GPUS)) dataloader_config.num_workers=${SLURM_CPUS_PER_TASK:-24} \
