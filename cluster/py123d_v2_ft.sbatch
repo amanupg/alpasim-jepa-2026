@@ -23,7 +23,9 @@ RUN=${RUN_DIR:-$B/runs/py123d_v2ft${TAG:+_$TAG}_$SLURM_JOB_ID}; mkdir -p $RUN
 export PY123D_GARAGE_DATA_ROOT=$T PY123D_GARAGE_RUNTIME_TYPE_CHECKING=false PYTHONNOUSERSITE=1 HF_HUB_DISABLE_TELEMETRY=1 HOME=$T/home PY123D_GARAGE_RUNTIME_TYPE_CHECKING=false
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1 NUMBA_THREADING_LAYER=workqueue
 # no expandable_segments: with v0.2's compile=reduce-overhead (CUDA graphs) the caching allocator asserted
-# 'curr_block->next == nullptr' at the first step of the 400-log run (13647603); ALLOC_CONF sets one if wanted
+# 'curr_block->next == nullptr' at the first step of the 400-log run (13647603); ALLOC_CONF sets one if wanted.
+# compile_mode=default (no CUDA graphs): reduce-overhead's cudagraph replay segfaulted in the optimizer step at batch
+# ~960 of the next attempt (13647809); COMPILE overrides it
 export WANDB_MODE=disabled ${ALLOC_CONF:+PYTORCH_CUDA_ALLOC_CONF=$ALLOC_CONF}
 # Aman 2026-10-10: authenticated downloads with the AlpaSim HF account (anonymous ones were throttled to ~1 MB/s).
 # Only the token FILE path is passed (never the token on a command line); the file is read in place.
@@ -101,6 +103,7 @@ unset SLURM_TRES_PER_TASK
 srun --kill-on-bad-exit=1 -n $GPUS --cpus-per-task=${SLURM_CPUS_PER_TASK:-24} $PY -m py123d_garage.training.train \
   training=py123d_garage.config.presets.training.latent_transfuser:nuplan_posttrain \
   hydra.run.dir=$RUN num_seeds=1 "initial_weights_files=[$INIT]" initial_weights_strict=true wandb_config.enabled=false \
+  compile_mode=${COMPILE:-default} \
   lightning_trainer_config.devices=$GPUS lightning_trainer_config.num_nodes=1 \
   lightning_trainer_config.max_epochs=${EPOCHS:-7} ${LR:+optimizer_config.learning_rate=$LR} \
   dataloader_config.batch_size=$((BATCH / GPUS)) dataloader_config.num_workers=${SLURM_CPUS_PER_TASK:-24} \
