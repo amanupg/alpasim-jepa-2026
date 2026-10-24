@@ -9,7 +9,7 @@ UV=/insomnia001/home/au2327/.local/bin/uv    # absolute: jobs may set HOME elsew
 if [ ! -x $G2ENV/bin/python ]; then
   t0=$(date +%s)
   $UV venv -q -p 3.12 $G2ENV \
-    && $UV pip install -q -p $G2ENV/bin/python -r $B/ext/py123d_garage_v2/pyproject.toml --extra alpasim \
+    && $UV pip install -q -p $G2ENV/bin/python -r $B/ext/py123d_garage_v2/pyproject.toml --extra alpasim --extra train \
     && $UV pip install -q -p $G2ENV/bin/python --no-deps $B/ext/py123d_garage_v2 \
     && $UV pip install -q -p $G2ENV/bin/python --find-links $B/container/wheels_e121e59 alpasim-grpc \
     && $UV pip install -q -p $G2ENV/bin/python "huggingface_hub[hf_xet]" \
