@@ -15,6 +15,9 @@
 #   NSCENES=N fallback; ROLLOUTS=2 (concurrent, as officially); TAG=name; WAJEPA_* passed to the driver
 #   DRIVER=wajepa (default) | a15 (AlpaSim v0.3 Alpamayo driver, run read-only with its image settings)
 #   NUPLAN_ROOT=<worldengine root> (default: the AlpaSim nuPlan data); SCENES_FROM=none to pick from it
+#   EXTRA_OVERRIDES="controller.gains.lat_position_weight=2.0 ...": wizard overrides (space separated; e.g. the MPC gains a
+#   submission may set: long/lat_position_weight, heading_weight, acceleration_weight, rel_front_steering_angle_weight,
+#   rel_acceleration_weight, idx_start_penalty; the nonlinear MPC is the default locally and officially)
 #   LOCAL_PART=NNN: fresh held-out scenes from MTGS asset part NNN on the node-local disk (see below)
 source /etc/profile
 module load apptainer/1.4.5
@@ -180,7 +183,7 @@ mkdir -p $B/data/fs
   echo "cd $RUN"
   echo "exec /repo/.venv/bin/alpasim_wizard +e2e_challenge_nuplan=dev wizard.run_method=NONE wizard.log_dir=$RUN" \
        "defines.filesystem=$B/data/fs hydra.run.dir=$RUN/hydra eval.video.render_video=${VIDEO:-false} wizard.baseport=$PORT_BASE" \
-       "runtime.endpoints.driver.n_concurrent_rollouts=$ROLLOUTS $SEL"
+       "runtime.endpoints.driver.n_concurrent_rollouts=$ROLLOUTS $SEL ${EXTRA_OVERRIDES:-}"
 } > $RUN/wizard.sh
 # LOCAL_PART: the wizard checks that the node-local track root exists, so bind it
 apptainer exec -B $A:$A:ro -B $B ${LOCAL_PART:+-B $NUPLAN_ROOT} $SIF bash $RUN/wizard.sh > $RUN/wizard.log 2>&1 || { tail -40 $RUN/wizard.log; exit 1; }
