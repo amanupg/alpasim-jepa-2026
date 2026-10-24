@@ -22,7 +22,9 @@ NLOGS=${NLOGS:-430}; BATCH_LOGS=${BATCH_LOGS:-15}; MIN_FREE_GB=${MIN_FREE_GB:-30
 RUN=${RUN_DIR:-$B/runs/py123d_v2ft${TAG:+_$TAG}_$SLURM_JOB_ID}; mkdir -p $RUN
 export PY123D_GARAGE_DATA_ROOT=$T PY123D_GARAGE_RUNTIME_TYPE_CHECKING=false PYTHONNOUSERSITE=1 HF_HUB_DISABLE_TELEMETRY=1 HOME=$T/home PY123D_GARAGE_RUNTIME_TYPE_CHECKING=false
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1 NUMBA_THREADING_LAYER=workqueue
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True WANDB_MODE=disabled
+# no expandable_segments: with v0.2's compile=reduce-overhead (CUDA graphs) the caching allocator asserted
+# 'curr_block->next == nullptr' at the first step of the 400-log run (13647603); ALLOC_CONF sets one if wanted
+export WANDB_MODE=disabled ${ALLOC_CONF:+PYTORCH_CUDA_ALLOC_CONF=$ALLOC_CONF}
 # Aman 2026-10-10: authenticated downloads with the AlpaSim HF account (anonymous ones were throttled to ~1 MB/s).
 # Only the token FILE path is passed (never the token on a command line); the file is read in place.
 export HF_TOKEN_PATH=/insomnia001/depts/edu/users/au2327/alpasim/.cache/hf/token HF_XET_HIGH_PERFORMANCE=1
