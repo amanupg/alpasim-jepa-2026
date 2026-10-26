@@ -89,12 +89,13 @@ elif [ $DRIVER = garage2 ]; then
 #      settings and checkpoints:
 #      G2_CKPTS="<file> [<file> ...]" (several = ensemble, plans averaged; default joint64 posttrain seed 0),
 #      G2_RIG (default the checkpoint dir's sensor_rig_nuplan.yaml), G2_OVERRIDES (driver settings, e.g. route_memory=true)
+#      G2_MODULE=g2_addons.entry: our add-ons around the same driver (src/g2_addons; G2_START_* env, start-from-rest)
   source $B/cluster/garage2_env.sh || exit 5
   V2=$B/weights/py123d/v0.2.0/ltf-base-joint64-68M/posttrain
   read -ra _ck <<< "${G2_CKPTS:-$V2/model_0.pth}"
   [ -f $(dirname ${_ck[0]})/config.yaml ] || { echo "no config.yaml next to ${_ck[0]}"; exit 5; }
   env PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 HOME=$RUN/garage_home OMP_NUM_THREADS=8 MPLCONFIGDIR=$TMPDIR/mpl \
-      $G2PY -m py123d_garage.evaluation.alpasim.evaluate hydra.run.dir=$RUN/garage \
+      ${G2_MODULE:+PYTHONPATH=$B/src} $G2PY -m ${G2_MODULE:-py123d_garage.evaluation.alpasim.evaluate} hydra.run.dir=$RUN/garage \
       "policy_config.evaluation_checkpoint_files=[$(IFS=,; echo "${_ck[*]}")]" \
       policy_config.evaluation_sensor_rig_file=${G2_RIG:-$(dirname ${_ck[0]})/sensor_rig_nuplan.yaml} \
       host=localhost port=$ALPASIM_DRIVER_PORT ${G2_OVERRIDES:-} > $RUN/driver.log 2>&1 &
