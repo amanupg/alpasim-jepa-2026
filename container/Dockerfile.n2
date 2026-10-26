@@ -1,0 +1,10 @@
+# Candidate N2 = candidate N (local/n:1: py123d_garage v0.2.2 + released v0.2.0 joint64 posttrain seed 0, unchanged)
+# + our start-now add-on (src/g2_addons, LEDGER 2026-10-26: +0.015 [+0.009, +0.021] over 754 local scenes, no new
+# zero-score scenes). Build from the repo root:
+#   docker build -f container/Dockerfile.n2 --build-context addons=src/g2_addons --build-context legal=container -t local/n2:1 .
+FROM local/n:1
+COPY --from=addons __init__.py entry.py /opt/addons/g2_addons/
+COPY --from=legal NOTICE.n2 /opt/NOTICE
+ENV PYTHONPATH=/opt/addons G2_START_K=3
+RUN python -c "import sys; sys.argv=['x']; import g2_addons.entry as e; assert e.START_K == 3; print('add-on ok', e.START_K)"
+ENTRYPOINT ["sh", "-c", "exec python -m g2_addons.entry ${PY123D_GARAGE_CONFIG} host=\"${ALPASIM_DRIVER_HOST:-0.0.0.0}\" port=\"${ALPASIM_DRIVER_PORT:-6789}\" \"$@\"", "sh"]
