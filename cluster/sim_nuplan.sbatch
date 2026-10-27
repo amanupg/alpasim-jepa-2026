@@ -51,16 +51,17 @@ if [ -n "${LOCAL_PART:-}" ]; then
   echo "part $LOCAL_PART: $(wc -l < $RUN/heldout/ids.txt) fresh scenes, driving $(head -${NSCENES} $RUN/heldout/ids.txt | wc -l)"
   NUPLAN_ROOT=$L; SCENES_FROM=$RUN/heldout
 fi
-# LOCAL_CACHE (default on once $B/data/nuplan_cache.tar exists): the trajdata cache + navtest/configs come from one
-# tar streamed onto the node's /local (cluster/pack_nuplan_cache.sbatch); the scene assets stay where they are
-# (symlinked, bound read-only). 2026-10-26: under fileset load the renderer's scan of the 85k shared cache files went
-# from 4.5 min to > 30 min, timing out every run.
-ASSET_BIND=
-if [ "${LOCAL_CACHE:-1}" = 1 ] && [ -s $B/data/nuplan_cache.tar ]; then
-  LC=${TMPDIR:?}/nuplan_local; mkdir -p $LC/navtest
-  t0=$(date +%s); tar -xf $B/data/nuplan_cache.tar -C $LC || { echo "cache tar extract failed"; exit 4; }
+# LOCAL_CACHE (default on once $B/data/nuplan_cache_hf holds both archives, cluster/fetch_nuplan_cache.sbatch): the
+# trajdata cache + navtest/configs are extracted from their two public archives onto the node's /local; the scene
+# assets stay where they are (symlinked, bound read-only). 2026-10-26: under fileset load the renderer's scan of the
+# 85k shared cache files went from 4.5 min to > 40 min, timing out every run (big-file reads stayed fast).
+ASSET_BIND=; HFC=$B/data/nuplan_cache_hf
+if [ "${LOCAL_CACHE:-1}" = 1 ] && [ -s $HFC/nuplan_test.tar.gz ] && [ -s $HFC/configs.tar.gz ]; then
+  LC=${TMPDIR:?}/nuplan_local; mkdir -p $LC
+  t0=$(date +%s)
+  tar -xzf $HFC/nuplan_test.tar.gz -C $LC && tar -xzf $HFC/configs.tar.gz -C $LC || { echo "cache extract failed"; exit 4; }
   ASSET_BIND=$(readlink -f $NUPLAN_ROOT/navtest/assets); ln -s $ASSET_BIND $LC/navtest/assets
-  echo "node-local trajdata cache in $(( $(date +%s) - t0 )) s ($(ls $LC/nuplan_test | wc -l) entries); assets from $ASSET_BIND"
+  echo "node-local trajdata cache in $(( $(date +%s) - t0 )) s ($(ls $LC/nuplan_test | wc -l) entries, $(ls $LC/navtest/configs | wc -l) configs); assets from $ASSET_BIND"
   NUPLAN_ROOT=$LC
 fi
 env | grep -E "^WAJEPA_|^A15_|^LTF_|^DIFFUSIONDRIVE_|^GTRS_|^GARAGE_" | sort > $RUN/variant.env; echo "NUPLAN_ROOT=$NUPLAN_ROOT" >> $RUN/variant.env
