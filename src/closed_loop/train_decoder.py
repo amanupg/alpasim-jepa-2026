@@ -22,6 +22,7 @@ import hydra
 import numpy as np
 import torch
 from omegaconf import DictConfig
+from torchvision.io import decode_jpeg
 
 from closed_loop.labels import recovery_labels
 from py123d_garage.api.abstract_policy_tensors import NavigationConditioning
@@ -60,8 +61,16 @@ def load_samples(dirs: list[str], max_records: int):
     return samples, skipped
 
 
+def _features(sample) -> dict[str, torch.Tensor]:
+    f = dict(sample["features"])
+    if "camera_feature_jpeg" in f:                               # collect.py stores the camera feature as JPEG
+        f["camera_feature"] = decode_jpeg(f.pop("camera_feature_jpeg"))
+    return f
+
+
 def batch_of(samples, device):
-    feats = {k: torch.stack([s["features"][k] for s in samples]).to(device) for k in samples[0]["features"]}
+    decoded = [_features(s) for s in samples]
+    feats = {k: torch.stack([f[k] for f in decoded]).to(device) for k in decoded[0]}
     nav = {k: torch.stack([s["navigation"][k] for s in samples]).to(device) for k in samples[0]["navigation"]}
     return (TransfuserFeatures(**feats), NavigationConditioning(**nav),
             torch.stack([s["trajectory"] for s in samples]).to(device), torch.stack([s["path"] for s in samples]).to(device))

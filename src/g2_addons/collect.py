@@ -7,9 +7,11 @@ and the session's logged ego trajectory, which the runtime sends only when
 the submission never reads it). Recovery labels are built offline from these records (src/closed_loop/labels.py).
 
 G2_CAPTURE_DIR: one `<scene>_<session>.pt` per rollout, written at close_session.
-G2_PERTURB_P / G2_PERTURB_M: with probability P per plan, the served plan gets a lateral offset ramping to
-U(-M, M) metres over 1.5 s (DART-style exploration), so the records include off-log states to recover from. The
-record holds the unperturbed plan's inputs; the perturbation only moves later states. Seeded per session.
+G2_PERTURB_P / G2_PERTURB_M / G2_PERTURB_PLANS: with probability P per plan (when none is running), a perturbation
+episode starts: the next G2_PERTURB_PLANS served plans (default 3, i.e. 1.5 s) get a lateral offset ramping to
+U(-M, M) metres over 1.5 s (DART-style exploration), so the records include off-log states to recover from. Each
+record holds the unperturbed plan's inputs; perturbations only move later states. Seeded per session.
+The camera feature is stored as JPEG (quality G2_JPEG_Q, default 95; ~10x smaller), decoded at training time.
 """
 from __future__ import annotations
 
@@ -22,6 +24,7 @@ import zlib
 
 import numpy as np
 import torch
+from torchvision.io import encode_jpeg
 
 from g2_addons import entry
 from py123d_garage.evaluation.alpasim import evaluate
@@ -31,12 +34,17 @@ LOG = logging.getLogger("g2_collect")
 CAPTURE_DIR = pathlib.Path(os.environ["G2_CAPTURE_DIR"])
 PERTURB_P = float(os.environ.get("G2_PERTURB_P", "0"))
 PERTURB_M = float(os.environ.get("G2_PERTURB_M", "1.0"))
+PERTURB_PLANS = int(os.environ.get("G2_PERTURB_PLANS", "3"))
+JPEG_Q = int(os.environ.get("G2_JPEG_Q", "95"))
 RAMP_S = 1.5
 _captured = threading.local()        # _plan and policy.forward run on the same thread
 
 
 def _cpu(bundle) -> dict[str, torch.Tensor]:
-    return {name: value[0].detach().cpu() for name, value in vars(bundle).items() if isinstance(value, torch.Tensor)}
+    out = {name: value[0].detach().cpu() for name, value in vars(bundle).items() if isinstance(value, torch.Tensor)}
+    if "camera_feature" in out:                                   # [3, H, W] uint8 -> JPEG bytes
+        out["camera_feature_jpeg"] = encode_jpeg(out.pop("camera_feature").to(torch.uint8).contiguous(), quality=JPEG_Q)
+    return out
 
 
 def _gt_local(session) -> dict[str, np.ndarray] | None:
@@ -75,8 +83,11 @@ def install() -> None:
         if session._g2_gt_local is None:
             session._g2_gt_local = _gt_local(session)
         offset_m = 0.0
-        if PERTURB_P > 0 and poses.shape == (64, 3) and session._g2_rng.random() < PERTURB_P:
-            offset_m = float(session._g2_rng.uniform(-PERTURB_M, PERTURB_M))
+        left = getattr(session, "_g2_perturb_left", 0)
+        if PERTURB_P > 0 and poses.shape == (64, 3) and left == 0 and session._g2_rng.random() < PERTURB_P:
+            session._g2_perturb_m, left = float(session._g2_rng.uniform(-PERTURB_M, PERTURB_M)), PERTURB_PLANS
+        if left > 0 and poses.shape == (64, 3) and np.hypot(*poses[-1, :2]) > 3.0:   # never push a plan that stays put
+            offset_m, session._g2_perturb_left = session._g2_perturb_m, left - 1
             t = np.arange(1, 65) * entry.DT_S
             poses = poses.copy()
             poses[:, 1] += offset_m * np.clip(t / RAMP_S, 0.0, 1.0)
@@ -122,7 +133,7 @@ def install() -> None:
 
 
 if __name__ == "__main__":
-    LOG.warning("g2 collect: start-now K=%d, capture -> %s, perturb p=%.2f m=%.1f",
-                entry.START_K, CAPTURE_DIR, PERTURB_P, PERTURB_M)
+    LOG.warning("g2 collect: start-now K=%d, capture -> %s, perturb p=%.2f m=%.1f x %d plans, jpeg q%d",
+                entry.START_K, CAPTURE_DIR, PERTURB_P, PERTURB_M, PERTURB_PLANS, JPEG_Q)
     install()
     evaluate.main()
