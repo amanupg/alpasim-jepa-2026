@@ -51,6 +51,18 @@ if [ -n "${LOCAL_PART:-}" ]; then
   echo "part $LOCAL_PART: $(wc -l < $RUN/heldout/ids.txt) fresh scenes, driving $(head -${NSCENES} $RUN/heldout/ids.txt | wc -l)"
   NUPLAN_ROOT=$L; SCENES_FROM=$RUN/heldout
 fi
+# LOCAL_CACHE (default on once $B/data/nuplan_cache.tar exists): the trajdata cache + navtest/configs come from one
+# tar streamed onto the node's /local (cluster/pack_nuplan_cache.sbatch); the scene assets stay where they are
+# (symlinked, bound read-only). 2026-10-26: under fileset load the renderer's scan of the 85k shared cache files went
+# from 4.5 min to > 30 min, timing out every run.
+ASSET_BIND=
+if [ "${LOCAL_CACHE:-1}" = 1 ] && [ -s $B/data/nuplan_cache.tar ]; then
+  LC=${TMPDIR:?}/nuplan_local; mkdir -p $LC/navtest
+  t0=$(date +%s); tar -xf $B/data/nuplan_cache.tar -C $LC || { echo "cache tar extract failed"; exit 4; }
+  ASSET_BIND=$(readlink -f $NUPLAN_ROOT/navtest/assets); ln -s $ASSET_BIND $LC/navtest/assets
+  echo "node-local trajdata cache in $(( $(date +%s) - t0 )) s ($(ls $LC/nuplan_test | wc -l) entries); assets from $ASSET_BIND"
+  NUPLAN_ROOT=$LC
+fi
 env | grep -E "^WAJEPA_|^A15_|^LTF_|^DIFFUSIONDRIVE_|^GTRS_|^GARAGE_" | sort > $RUN/variant.env; echo "NUPLAN_ROOT=$NUPLAN_ROOT" >> $RUN/variant.env
 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
 PORT_BASE=$((20000 + (SLURM_JOB_ID % 4000) * 10))
@@ -186,14 +198,14 @@ mkdir -p $B/data/fs
        "defines.filesystem=$B/data/fs hydra.run.dir=$RUN/hydra eval.video.render_video=${VIDEO:-false} wizard.baseport=$PORT_BASE" \
        "runtime.endpoints.driver.n_concurrent_rollouts=$ROLLOUTS $SEL ${EXTRA_OVERRIDES:-}"
 } > $RUN/wizard.sh
-# LOCAL_PART: the wizard checks that the node-local track root exists, so bind it
-apptainer exec -B $A:$A:ro -B $B ${LOCAL_PART:+-B $NUPLAN_ROOT} $SIF bash $RUN/wizard.sh > $RUN/wizard.log 2>&1 || { tail -40 $RUN/wizard.log; exit 1; }
+# a node-local track root (LOCAL_PART, LOCAL_CACHE): the wizard checks that it exists, so bind it
+apptainer exec -B $A:$A:ro -B $B $([ "${NUPLAN_ROOT#$TMPDIR}" != "$NUPLAN_ROOT" ] && echo -B $NUPLAN_ROOT) $([ -n "$ASSET_BIND" ] && [ "${ASSET_BIND#$TMPDIR}" != "$ASSET_BIND" ] && echo -B $ASSET_BIND) $SIF bash $RUN/wizard.sh > $RUN/wizard.log 2>&1 || { tail -40 $RUN/wizard.log; exit 1; }
 apptainer exec -B $B $SIF /repo/.venv/bin/python -c "import yaml,json; json.dump(yaml.safe_load(open('$RUN/docker-compose.yaml')), open('$RUN/docker-compose.json','w'), indent=1)"
 # Slurm sets TMPDIR=/local/slurm-job-N, which the containers cannot see (warp's NVRTC kernel build
 # failed with 'cannot open temporary file'): use /tmp, which apptainer binds
 TMPDIR=/tmp python3 $B/src/compose_apptainer.py $RUN/docker-compose.json --sif-dir $A/sandbox --repo-host $REPO \
   --logdir $RUN/svc-logs --cache-dir $B/cache/containers --timeout 3600 \
-  $([ "$NUPLAN_ROOT" != $A/data/nuplan_track ] && echo --extra-bind $A/data/nuplan_track)   # symlink targets (our nuplan_test, navtest/configs); renderer start can exceed 30 min (ins038/039, 2026-10-02)
+  $([ "$NUPLAN_ROOT" != $A/data/nuplan_track ] && echo --extra-bind $A/data/nuplan_track) $([ -n "$ASSET_BIND" ] && [ "${ASSET_BIND#$A/data/nuplan_track}" = "$ASSET_BIND" ] && echo --extra-bind $ASSET_BIND)   # symlink targets (our nuplan_test, navtest/configs); renderer start can exceed 30 min (ins038/039, 2026-10-02)
 RC=$?
 echo "runtime exit $RC"
 python3 $A/src/summarize_run.py $RUN
