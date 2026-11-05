@@ -29,7 +29,7 @@ export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THRE
 export WANDB_MODE=disabled ${ALLOC_CONF:+PYTORCH_CUDA_ALLOC_CONF=$ALLOC_CONF}
 # Aman 2026-10-10: authenticated downloads with the AlpaSim HF account (anonymous ones were throttled to ~1 MB/s).
 # Only the token FILE path is passed (never the token on a command line); the file is read in place.
-export HF_TOKEN_PATH=/insomnia001/depts/edu/users/au2327/alpasim/.cache/hf/token HF_XET_HIGH_PERFORMANCE=1
+export HF_TOKEN_PATH=/insomnia001/depts/edu/users/au2327/alpasim-jepa/.cache/hf/token HF_XET_HIGH_PERFORMANCE=1
 D=$T/nuplan/123D; mkdir -p $D $HOME; cp -r $B/data/py123d/nuplan/123D/index.parquet $B/data/py123d/nuplan/123D/maps $D/
 source $B/cluster/garage2_env.sh || exit 5
 PY=$G2PY; HF=$(dirname $G2PY)/hf    # with hf_xet (the old env's hf fell back to slow HTTP)

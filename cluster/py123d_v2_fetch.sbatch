@@ -11,7 +11,7 @@
 source /etc/profile
 set -eo pipefail
 B=/insomnia001/depts/edu/users/au2327/alpasim-jepa; W=$B/weights/py123d
-export HF_TOKEN_PATH=/insomnia001/depts/edu/users/au2327/alpasim/.cache/hf/token HF_XET_HIGH_PERFORMANCE=1 HF_HUB_DISABLE_TELEMETRY=1 HOME=$TMPDIR
+export HF_TOKEN_PATH=/insomnia001/depts/edu/users/au2327/alpasim-jepa/.cache/hf/token HF_XET_HIGH_PERFORMANCE=1 HF_HUB_DISABLE_TELEMETRY=1 HOME=$TMPDIR
 df -h /insomnia001/depts/edu/users/au2327 | tail -1
 $B/envs/garage/bin/hf download kesai-labs/py123d_garage_pretrained_checkpoints --revision 56edbe90a71a3fd4baee2d5f2f2da0bb7e722364 \
   --include 'v0.2.0/ltf-base-joint64-68M/*' --include 'v0.2.0/ltf-streaming-joint64-68M/*' --local-dir $W > /dev/null

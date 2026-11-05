@@ -15,7 +15,7 @@ B=/insomnia001/depts/edu/users/au2327/alpasim-jepa; D=$B/data/nuplan_cache_hf; m
 for f in trajdata_cache/nuplan_test.tar.gz MTGS_asset/navtest/configs.tar.gz; do
   for attempt in 1 2 3; do
     # token file path only, never the token itself (Aman 2026-10-10); public dataset
-    HOME=$TMPDIR/home HF_HUB_DISABLE_TELEMETRY=1 HF_XET_HIGH_PERFORMANCE=1 HF_TOKEN_PATH=/insomnia001/depts/edu/users/au2327/alpasim/.cache/hf/token \
+    HOME=$TMPDIR/home HF_HUB_DISABLE_TELEMETRY=1 HF_XET_HIGH_PERFORMANCE=1 HF_TOKEN_PATH=/insomnia001/depts/edu/users/au2327/alpasim-jepa/.cache/hf/token \
       $B/envs/garage/bin/hf download OpenDriveLab/AlpasimChallenge2026_nuplan_track --repo-type dataset --include "$f" --local-dir $TMPDIR/dl > /dev/null && break
     sleep 60
   done

@@ -9,7 +9,9 @@
 #SBATCH -t 01:15:00   # runs take ~20-30 min; a short limit lets the scheduler backfill
 #SBATCH -o /insomnia001/depts/edu/users/au2327/alpasim-jepa/logs/sim_nuplan_%j.out
 # Closed-loop nuPlan evaluation of the WA-JEPA driver on Insomnia.
-# The AlpaSim tree ($A) is READ-ONLY here: its simulator sandboxes, nuPlan data, wizard and summary
+# Since 2026-11-04 the simulator sandbox, checkout and nuPlan data live in this folder ($B/sandbox, $B/ext/alpasim_sim,
+# $B/data/nuplan_track; moved from ../alpasim, which is gone). The a15 / SimScale-sample / wajepa drivers below still name
+# ../alpasim/envs/overlay_driver, which was deleted with it: those drivers no longer run as is.
 # scripts are used as-is and mounted read-only; every output goes under $B (alpasim-jepa).
 #   SCENES_FROM=<run dir with scene_ids.txt> (default: the AlpaSim v0.3 nuPlan bench run, for pairing)
 #   NSCENES=N fallback; ROLLOUTS=2 (concurrent, as officially); TAG=name; WAJEPA_* passed to the driver
@@ -24,9 +26,9 @@ module load apptainer/1.4.5
 set -x
 A=/insomnia001/depts/edu/users/au2327/alpasim; B=/insomnia001/depts/edu/users/au2327/alpasim-jepa
 NR=/insomnia001/depts/edu/users/au2327/nureasoning
-SIF=$A/sandbox/alpasim-base; REPO=$A/external/alpasim
+SIF=$B/sandbox/alpasim-base; REPO=${REPO:-$B/ext/alpasim_sim}   # moved from ../alpasim 2026-11-04
 ROLLOUTS=${ROLLOUTS:-2}; NSCENES=${NSCENES:-100}; DRIVER=${DRIVER:-wajepa}
-NUPLAN_ROOT=${NUPLAN_ROOT:-$A/data/nuplan_track}
+NUPLAN_ROOT=${NUPLAN_ROOT:-$B/data/nuplan_track}
 RUN=$B/runs/nuplan_${DRIVER}${TAG:+_$TAG}_$SLURM_JOB_ID; mkdir -p $RUN
 if [ -n "${LOCAL_PART:-}" ]; then
   # Fresh held-out scenes without using the dept fileset (full on 2026-10-08): build a track root on the node's
@@ -35,18 +37,18 @@ if [ -n "${LOCAL_PART:-}" ]; then
   L=${TMPDIR:?}/nuplan_track; mkdir -p $L/navtest
   # trajdata cache + configs: symlinks to ../alpasim's copies (dedupe 2026-10-18; read-only, bound into the services
   # via --extra-bind below). Copying the 85k small files from GPFS took over 2 h and made earlier fresh runs time out.
-  ln -s $A/data/nuplan_track/nuplan_test $L/nuplan_test; ln -s $A/data/nuplan_track/navtest/configs $L/navtest/configs
+  ln -s $B/data/nuplan_track/nuplan_test $L/nuplan_test; ln -s $B/data/nuplan_track/navtest/configs $L/navtest/configs
   # hf resumes interrupted transfers (a piped curl stream was cut off after ~3 GB on 2026-10-08)
   for attempt in 1 2 3; do
     # token file path only, never the token itself (Aman 2026-10-10); high-performance xet for speed
-    HOME=$TMPDIR/home HF_HUB_DISABLE_TELEMETRY=1 HF_XET_HIGH_PERFORMANCE=1 HF_TOKEN_PATH=/insomnia001/depts/edu/users/au2327/alpasim/.cache/hf/token $B/envs/garage/bin/hf download OpenDriveLab/AlpasimChallenge2026_nuplan_track \
+    HOME=$TMPDIR/home HF_HUB_DISABLE_TELEMETRY=1 HF_XET_HIGH_PERFORMANCE=1 HF_TOKEN_PATH=$B/.cache/hf/token $B/envs/garage/bin/hf download OpenDriveLab/AlpasimChallenge2026_nuplan_track \
       --repo-type dataset --include "MTGS_asset/navtest/assets/part$LOCAL_PART.tar.gz" --local-dir $TMPDIR/dl > /dev/null && break
     sleep 60
   done
   tar -xzf $TMPDIR/dl/MTGS_asset/navtest/assets/part$LOCAL_PART.tar.gz -C $L || { echo "part $LOCAL_PART: download/extract failed"; exit 4; }
   rm -rf $TMPDIR/dl
   mkdir -p $RUN/heldout
-  ls $L/navtest/assets | grep -vxFf <(ls $B/data/nuplan_track/navtest/assets; ls $A/data/nuplan_track/navtest/assets) > $RUN/heldout/ids.txt || true
+  ls $L/navtest/assets | grep -vxFf <(ls $B/data/nuplan_track/navtest/assets) > $RUN/heldout/ids.txt || true
   head -${NSCENES} $RUN/heldout/ids.txt | sed "s/.*/'&'/" | paste -sd, - > $RUN/heldout/scene_ids.txt
   echo "part $LOCAL_PART: $(wc -l < $RUN/heldout/ids.txt) fresh scenes, driving $(head -${NSCENES} $RUN/heldout/ids.txt | wc -l)"
   NUPLAN_ROOT=$L; SCENES_FROM=$RUN/heldout
@@ -181,7 +183,7 @@ grep "loaded in\|$READY" $RUN/driver.log
 ( while kill -0 $DRV 2>/dev/null; do nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader >> $RUN/gpu_mem.log; sleep 15; done ) &
 
 # ---- scenes: same list as the AlpaSim v0.3 bench run by default (paired comparison)
-SCENES_FROM=${SCENES_FROM:-$(ls -d $A/runs/local_nuplan_a15_bench_* 2>/dev/null | tail -1)}
+SCENES_FROM=${SCENES_FROM:-$B/runs/scenes_shard001}
 [ "$SCENES_FROM" = none ] && SCENES_FROM=
 if [ -n "$SCENES_FROM" ] && [ -s "$SCENES_FROM/scene_ids.txt" ]; then
   SCENES=$(cat $SCENES_FROM/scene_ids.txt)
@@ -200,19 +202,19 @@ mkdir -p $B/data/fs
        "runtime.endpoints.driver.n_concurrent_rollouts=$ROLLOUTS $SEL ${EXTRA_OVERRIDES:-}"
 } > $RUN/wizard.sh
 # a node-local track root (LOCAL_PART, LOCAL_CACHE): the wizard checks that it exists, so bind it
-apptainer exec -B $A:$A:ro -B $B $([ "${NUPLAN_ROOT#$TMPDIR}" != "$NUPLAN_ROOT" ] && echo -B $NUPLAN_ROOT) $([ -n "$ASSET_BIND" ] && [ "${ASSET_BIND#$TMPDIR}" != "$ASSET_BIND" ] && echo -B $ASSET_BIND) $SIF bash $RUN/wizard.sh > $RUN/wizard.log 2>&1 || { tail -40 $RUN/wizard.log; exit 1; }
+apptainer exec -B $B $([ "${NUPLAN_ROOT#$TMPDIR}" != "$NUPLAN_ROOT" ] && echo -B $NUPLAN_ROOT) $([ -n "$ASSET_BIND" ] && [ "${ASSET_BIND#$TMPDIR}" != "$ASSET_BIND" ] && echo -B $ASSET_BIND) $SIF bash $RUN/wizard.sh > $RUN/wizard.log 2>&1 || { tail -40 $RUN/wizard.log; exit 1; }
 apptainer exec -B $B $SIF /repo/.venv/bin/python -c "import yaml,json; json.dump(yaml.safe_load(open('$RUN/docker-compose.yaml')), open('$RUN/docker-compose.json','w'), indent=1)"
 # Slurm sets TMPDIR=/local/slurm-job-N, which the containers cannot see (warp's NVRTC kernel build
 # failed with 'cannot open temporary file'): use /tmp, which apptainer binds
-TMPDIR=/tmp python3 $B/src/compose_apptainer.py $RUN/docker-compose.json --sif-dir $A/sandbox --repo-host $REPO \
+TMPDIR=/tmp python3 $B/src/compose_apptainer.py $RUN/docker-compose.json --sif-dir $B/sandbox --repo-host $REPO \
   --logdir $RUN/svc-logs --cache-dir $B/cache/containers --timeout 3600 \
-  $([ "$NUPLAN_ROOT" != $A/data/nuplan_track ] && echo --extra-bind $A/data/nuplan_track) $([ -n "$ASSET_BIND" ] && [ "${ASSET_BIND#$A/data/nuplan_track}" = "$ASSET_BIND" ] && echo --extra-bind $ASSET_BIND)   # symlink targets (our nuplan_test, navtest/configs); renderer start can exceed 30 min (ins038/039, 2026-10-02)
+  $([ "$NUPLAN_ROOT" != $B/data/nuplan_track ] && echo --extra-bind $B/data/nuplan_track) $([ -n "$ASSET_BIND" ] && [ "${ASSET_BIND#$B/data/nuplan_track}" = "$ASSET_BIND" ] && echo --extra-bind $ASSET_BIND)   # symlink targets (our nuplan_test, navtest/configs); renderer start can exceed 30 min (ins038/039, 2026-10-02)
 RC=$?
 echo "runtime exit $RC"
-python3 $A/src/summarize_run.py $RUN
-[ -n "$SCENES_FROM" ] && python3 $A/src/compare_runs.py $SCENES_FROM $RUN
+python3 $B/src/tools/summarize_run.py $RUN
+[ -n "$SCENES_FROM" ] && python3 $B/src/tools/compare_runs.py $SCENES_FROM $RUN
 echo "driver (pid $DRV) peak GPU memory: $(grep "^$DRV," $RUN/gpu_mem.log | sort -t, -k2 -n | tail -1)"
 grep "inference=\|closed session" $RUN/driver.log | tail -3
 # keep the audit trail, drop the camera JPEG bytes (src/analysis/slim_asl.py; verified before deleting originals)
-apptainer exec -B $A:$A:ro -B $B $SIF env PYTHONDONTWRITEBYTECODE=1 /repo/.venv/bin/python $B/src/analysis/slim_asl.py --delete $RUN | tail -1
+apptainer exec -B $B $SIF env PYTHONDONTWRITEBYTECODE=1 /repo/.venv/bin/python $B/src/analysis/slim_asl.py --delete $RUN | tail -1
 exit $RC
