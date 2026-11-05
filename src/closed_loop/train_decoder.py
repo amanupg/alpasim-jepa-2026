@@ -137,6 +137,7 @@ def main(cfg: DictConfig) -> None:
 
     policy.requires_grad_(False)
     policy.planning_decoder.requires_grad_(True)
+    start = {k: v.detach().clone() for k, v in policy.planning_decoder.state_dict().items() if v.is_floating_point()}
     params = [p for p in policy.parameters() if p.requires_grad]
     weights = policy.loss_weights(0)
     epochs = int(os.environ.get("CL_EPOCHS", "4"))
@@ -170,6 +171,12 @@ def main(cfg: DictConfig) -> None:
         if val:
             LOG.info("val sampled L1 after epoch %d: all %.3f m, off-log %.3f m (n=%d)", epoch,
                      *sampled_l1(policy, val, device, batch))
+    moved = {k: float((v.detach() - start[k]).norm() / (start[k].norm() + 1e-12))
+             for k, v in policy.planning_decoder.state_dict().items() if k in start}
+    total_rel = math.sqrt(sum(float((v.detach() - start[k]).norm()) ** 2 for k, v in policy.planning_decoder.state_dict().items()
+                              if k in start)) / math.sqrt(sum(float(t.norm()) ** 2 for t in start.values()))
+    top = sorted(moved.items(), key=lambda kv: -kv[1])[:5]
+    LOG.info("weights moved: decoder relative L2 %.4f; largest %s", total_rel, [(k, round(v, 4)) for k, v in top])
     out = os.environ["CL_OUT"]
     base = torch.load(config.policy_config.evaluation_checkpoint_files[0], map_location="cpu", weights_only=False)
     state = {k: v.detach().cpu() for k, v in policy.state_dict().items()}
