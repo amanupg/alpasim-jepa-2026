@@ -6,7 +6,8 @@ policy_config.evaluation_checkpoint_files=[...]); the backbone and every other h
 (trajectory, path, action), and the training-time conditioning of `_forward_heads` (target point dropout etc.).
 
 Env: CL_DATA (dirs of collect.py .pt files, ':'-separated), CL_OUT (output .pth), CL_EPOCHS (4), CL_LR (2e-5),
-CL_BATCH (32), CL_VAL_FRAC (0.1, by scene), CL_SEED (0), CL_MAX_RECORDS (0 = all).
+CL_BATCH (32), CL_VAL_FRAC (0.1, by scene), CL_SEED (0), CL_MAX_RECORDS (0 = all),
+CL_TIMING ("log": recovery labels with the log's timing, round 1; "own": lateral-only, the policy's own speed profile).
 The output keeps the released checkpoint's plain state-dict layout (keys it holds that the model does not are copied).
 """
 from __future__ import annotations
@@ -37,7 +38,7 @@ LOG = logging.getLogger("closed_loop.train")
 register_schema("evaluate_alpasim", AlpasimBenchmarkConfig)
 
 
-def load_samples(dirs: list[str], max_records: int):
+def load_samples(dirs: list[str], max_records: int, timing: str = "log"):
     samples, skipped = [], 0
     for d in dirs:
         for f in sorted(glob.glob(os.path.join(d, "*.pt"))):
@@ -49,7 +50,7 @@ def load_samples(dirs: list[str], max_records: int):
                 if rec["features"] is None or rec["navigation"] is None:
                     skipped += 1
                     continue
-                lab = recovery_labels(rec, blob["gt_local"])
+                lab = recovery_labels(rec, blob["gt_local"], timing)
                 if lab is None:
                     skipped += 1
                     continue
@@ -99,19 +100,38 @@ def train_loss(policy, features, navigation, trajectory, path, weights):
     return total, losses
 
 
+def cross_track(driven, path):
+    """Mean distance of the driven waypoints [B, T, 2] to the label path polyline [B, P, 2] (timing-free), over the
+    waypoints no farther from the ego than the path's end (the path label covers 64 m)."""
+    a, b = path[:, None, :-1], path[:, None, 1:]                       # [B, 1, P-1, 2]
+    ab = b - a
+    ap = driven[:, :, None] - a                                        # [B, T, P-1, 2]
+    u = ((ap * ab).sum(-1) / (ab * ab).sum(-1).clamp_min(1e-9)).clamp(0, 1)
+    d = (ap - u[..., None] * ab).norm(dim=-1).min(dim=-1).values       # [B, T]
+    inside = (driven.norm(dim=-1) <= path[:, -1].norm(dim=-1, keepdim=True)).float()
+    return (d * inside).sum(dim=-1) / inside.sum(dim=-1).clamp_min(1.0)
+
+
 @torch.no_grad()
 def sampled_l1(policy, samples, device, batch):
-    """Mean L1 of the sampled waypoints (eval mode, as driven) to the recovery labels; also only on off-log records."""
+    """Mean L1 of the sampled waypoints (eval mode, as driven) to the trajectory labels, and mean cross-track distance
+    to the path label; each on all records and on off-log ones (|e| > 0.3 m)."""
     policy.eval()
-    errs, off = [], []
+    errs, off, xt, xt_off = [], [], [], []
     for i in range(0, len(samples), batch):
         chunk = samples[i: i + batch]
-        features, navigation, trajectory, _ = batch_of(chunk, device)
+        features, navigation, trajectory, path = batch_of(chunk, device)
         driven = policy.forward(features, navigation).ego_trajectory_se2[..., :2]
-        e = (driven - trajectory[..., :2]).norm(dim=-1).mean(dim=-1).cpu()
-        errs += e.tolist()
-        off += [x for x, s in zip(e.tolist(), chunk) if abs(s["lateral"]) > 0.3]
-    return float(np.mean(errs)), float(np.mean(off)) if off else float("nan"), len(off)
+        e = (driven - trajectory[..., :2]).norm(dim=-1).mean(dim=-1).cpu().tolist()
+        x = cross_track(driven.float(), path[..., :2].float()).cpu().tolist()
+        errs += e
+        xt += x
+        is_off = [abs(s["lateral"]) > 0.3 for s in chunk]
+        off += [v for v, o in zip(e, is_off) if o]
+        xt_off += [v for v, o in zip(x, is_off) if o]
+    nan = float("nan")
+    return (float(np.mean(errs)), float(np.mean(off)) if off else nan, float(np.mean(xt)),
+            float(np.mean(xt_off)) if xt_off else nan, len(off))
 
 
 @hydra.main(config_path=str(CONFIG_PATH), config_name="evaluate_alpasim", version_base=None)
@@ -122,7 +142,9 @@ def main(cfg: DictConfig) -> None:
     config = finalize_evaluation(cfg, AlpasimBenchmarkConfig, hydra_overrides())
     device = torch.device(config.device)
     policy = build_policy(config, device)
-    samples, skipped = load_samples(os.environ["CL_DATA"].split(":"), int(os.environ.get("CL_MAX_RECORDS", "0")))
+    timing = os.environ.get("CL_TIMING", "log")
+    samples, skipped = load_samples(os.environ["CL_DATA"].split(":"), int(os.environ.get("CL_MAX_RECORDS", "0")), timing)
+    LOG.info("label timing: %s", timing)
     scenes = sorted({s["scene"] for s in samples})
     val_frac = float(os.environ.get("CL_VAL_FRAC", "0.1"))
     val_scenes = {s for s in scenes if (zlib.crc32(s.encode()) % 1000) / 1000 < val_frac}
@@ -133,7 +155,7 @@ def main(cfg: DictConfig) -> None:
              sum(abs(s["lateral"]) > 0.3 for s in samples))
     batch = int(os.environ.get("CL_BATCH", "32"))
     if val:
-        LOG.info("val sampled L1 before: all %.3f m, off-log %.3f m (n=%d)", *sampled_l1(policy, val, device, batch))
+        LOG.info("val before: L1 all %.3f m, off-log %.3f m; cross-track all %.3f m, off-log %.3f m (n=%d)", *sampled_l1(policy, val, device, batch))
 
     policy.requires_grad_(False)
     policy.planning_decoder.requires_grad_(True)
@@ -169,7 +191,7 @@ def main(cfg: DictConfig) -> None:
                          list(losses))
                 running = []
         if val:
-            LOG.info("val sampled L1 after epoch %d: all %.3f m, off-log %.3f m (n=%d)", epoch,
+            LOG.info("val after epoch %d: L1 all %.3f m, off-log %.3f m; cross-track all %.3f m, off-log %.3f m (n=%d)", epoch,
                      *sampled_l1(policy, val, device, batch))
     moved = {k: float((v.detach() - start[k]).norm() / (start[k].norm() + 1e-12))
              for k, v in policy.planning_decoder.state_dict().items() if k in start}

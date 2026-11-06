@@ -28,6 +28,9 @@ D_MIN = 8.0
 MAX_OFFSET_M = 3.0
 MAX_EXTRAP_S = 3.4         # at least 3 s of the 6.4 s label comes from the log
 SEARCH_BACK_S, SEARCH_AHEAD_S = 4.0, 8.0
+EXTRAP_SLACK_M = 5.0       # timing="own": straight extension past the log's end allowed beyond round 1's budget
+STILL_STEP_M = 0.01        # a 0.1 s step under 1 cm (0.1 m/s) is jitter while stopped
+PERTURB_RAMP_S = 1.5       # collect.py's RAMP_S
 
 
 def _wrap(a):
@@ -106,8 +109,13 @@ def time_at_arc(path: LoggedPath, s0, anchor_s):
     return float(np.interp(s0, path.s, path.t))
 
 
-def recovery_labels(record: dict, gt: dict):
-    """(trajectory [64, 3], path [64, 3], info) in the ego anchor frame, or None when the record is unusable."""
+def recovery_labels(record: dict, gt: dict, timing: str = "log"):
+    """(trajectory [64, 3], path [64, 3], info) in the ego anchor frame, or None when the record is unusable.
+
+    timing="log": the trajectory follows the log's timing from t* (round 1).
+    timing="own" (lateral-only): the trajectory keeps the policy's own speed profile (distance along its served plan,
+    own_arc) and places it on the eased logged path, so only the geometry is corrected; the path label is the same.
+    Records are filtered exactly as with "log", plus the same extension budget in metres (MAX_EXTRAP_S at the log's final speed, + EXTRAP_SLACK_M)."""
     path = LoggedPath(gt["timestamps_us"], gt["xy"], gt["yaw"])
     x, y, _, yaw = record["ego_pose_local"]
     anchor_s = record["anchor_us"] * 1e-6
@@ -145,4 +153,22 @@ def recovery_labels(record: dict, gt: dict):
 
     info = {"s0": s0, "lateral": lateral, "dpsi": dpsi, "t_star": t_star, "anchor_s": anchor_s,
             "extrap_s": max(0.0, t_star + taus[-1] - path.t[-1])}
+    if timing == "own":
+        own = own_arc(record)
+        if own[-1] - (path.s[-1] - s0) > MAX_EXTRAP_S * path.v_end + EXTRAP_SLACK_M:   # round 1's budget, in metres
+            return None
+        traj_s = s0 + own
+        traj_xy, traj_yaw = ease(*path.at_arc(traj_s), traj_s)
+        info["own_m"] = float(own[-1])
     return to_anchor(traj_xy, traj_yaw).astype(np.float32), to_anchor(path_xy, path_yaw).astype(np.float32), info
+
+
+def own_arc(record) -> np.ndarray:
+    """Distance travelled along the policy's own served plan at 0.1 ... 6.4 s, with collect.py's perturbation ramp
+    removed and steps under STILL_STEP_M (sampling jitter while stopped) counted as 0."""
+    poses = np.asarray(record["served_poses"], np.float64)[:, :2].copy()
+    offset = record.get("perturb_m", 0.0)
+    if offset:
+        poses[:, 1] -= offset * np.clip(np.arange(1, NUM_STEPS + 1) * STEP_S / PERTURB_RAMP_S, 0.0, 1.0)
+    steps = np.linalg.norm(np.diff(np.vstack([[0.0, 0.0], poses]), axis=0), axis=1)
+    return np.cumsum(np.where(steps < STILL_STEP_M, 0.0, steps))
