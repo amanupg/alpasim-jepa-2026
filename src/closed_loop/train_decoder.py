@@ -7,7 +7,9 @@ policy_config.evaluation_checkpoint_files=[...]); the backbone and every other h
 
 Env: CL_DATA (dirs of collect.py .pt files, ':'-separated), CL_OUT (output .pth), CL_EPOCHS (4), CL_LR (2e-5),
 CL_BATCH (32), CL_VAL_FRAC (0.1, by scene), CL_SEED (0), CL_MAX_RECORDS (0 = all),
-CL_TIMING ("log": recovery labels with the log's timing, round 1; "own": lateral-only, the policy's own speed profile).
+CL_TIMING ("log": recovery labels with the log's timing, round 1; "own": lateral-only, the policy's own speed profile;
+"self": control, the policy's own served plan as the trajectory label), CL_ZERO_LOSSES (comma list of loss names whose
+weight is set to 0, e.g. loss_path for the "self" control, whose path label still comes from the log).
 The output keeps the released checkpoint's plain state-dict layout (keys it holds that the model does not are copied).
 """
 from __future__ import annotations
@@ -50,7 +52,9 @@ def load_samples(dirs: list[str], max_records: int, timing: str = "log"):
                 if rec["features"] is None or rec["navigation"] is None:
                     skipped += 1
                     continue
-                lab = recovery_labels(rec, blob["gt_local"], timing)
+                lab = recovery_labels(rec, blob["gt_local"], "own" if timing == "self" else timing)
+                if lab is not None and timing == "self":        # control: the policy's own served plan as the label
+                    lab = (_own_plan(rec), lab[1], lab[2])
                 if lab is None:
                     skipped += 1
                     continue
@@ -60,6 +64,15 @@ def load_samples(dirs: list[str], max_records: int, timing: str = "log"):
                 if max_records and len(samples) >= max_records:
                     return samples, skipped
     return samples, skipped
+
+
+def _own_plan(rec) -> np.ndarray:
+    """The served plan [64, 3] with collect.py's lateral perturbation ramp removed (self-distillation control)."""
+    poses = np.asarray(rec["served_poses"], np.float32).copy()
+    offset = rec.get("perturb_m", 0.0)
+    if offset:
+        poses[:, 1] -= offset * np.clip(np.arange(1, 65) * 0.1 / 1.5, 0.0, 1.0)
+    return poses
 
 
 def _features(sample) -> dict[str, torch.Tensor]:
@@ -161,7 +174,9 @@ def main(cfg: DictConfig) -> None:
     policy.planning_decoder.requires_grad_(True)
     start = {k: v.detach().clone() for k, v in policy.planning_decoder.state_dict().items() if v.is_floating_point()}
     params = [p for p in policy.parameters() if p.requires_grad]
-    weights = policy.loss_weights(0)
+    weights = dict(policy.loss_weights(0))
+    for name in filter(None, os.environ.get("CL_ZERO_LOSSES", "").split(",")):
+        weights[name] = 0.0
     epochs = int(os.environ.get("CL_EPOCHS", "4"))
     steps = epochs * math.ceil(len(train) / batch)
     optimizer = torch.optim.AdamW(params, lr=float(os.environ.get("CL_LR", "2e-5")), weight_decay=0.01)

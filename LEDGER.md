@@ -867,3 +867,10 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
     - `r2lat`: loss 0.201 → 0.151 → 0.134 → 0.135 (50-step windows, by epoch); decoder moved 0.0005 relative L2; held-out cross-track 0.594 → 0.607 m (all), 1.402 → 1.382 m (off-log, n=72); L1 0.789 → 0.804. **Training loss fell but the held-out metric did not move: no offline gain at this dose.**
     - `r2lat_hi`: loss 0.183 → 0.129 → 0.112 → 0.109; moved 0.0010; held-out cross-track 0.594 → 0.571 m (-4%), off-log 1.402 → 1.222 m (-13%); L1 0.789 → 0.789 (all), 1.557 → 1.472 (off-log). **Modest offline gain, mostly on off-log states.** Validation n = 72 off-log records from 73 scenes, so treat the -13% as indicative only.
     - Closed loop on tuning (13823449-54) is what decides; both run, since offline gains have not predicted closed loop here.
+- **Round 2 closed loop, tuning (300 scenes, start-now K=3, all L40S; baseline = v8 on L40S: controls 13823589 / 13822085 for s001/s010 + v8's own L40S s005 run):**
+  - A/A: v8 L40S vs v8 original (H100 for s001/s010) -0.0009 [-0.0029, +0.0001], 280/300 identical, same 16 zeros. Noise is small.
+  - `r2lat` (lr 2e-5): **-0.016 [-0.028, -0.006]**, W18 / L24, zeros 16 → 20 (4 new: 3 offroad, 1 at-fault collision; 0 fixed).
+  - `r2lat_hi` (lr 1e-4): **-0.026 [-0.043, -0.010]**, W15 / L31, zeros 16 → 23 (8 new: 7 offroad, 1 at-fault; 1 fixed).
+  - Round 1 on the same baseline: -0.0125 [-0.032, +0.006], 9 new zeros.
+  - **Tested properly, no gain; both worse, CI below 0, and worse with more dose.** Lateral-only labels did not reduce offroads; they added them. Not adopted; held-out not spent.
+  - **Open question:** is it the labels, or does any decoder-only fine-tune here damage driving? In both rounds the largest moved tensors were the flow-time / path-distance embeddings, not anything about geometry. **Control queued:** `r2self_hi` (13824491): same data, recipe and lr 1e-4, but the label is the policy's own served plan (perturbation removed), path loss weight 0; closed loop 13824492-94. If it also loses, the fine-tune recipe itself is the problem, not the labels.
