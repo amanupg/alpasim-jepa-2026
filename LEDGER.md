@@ -895,3 +895,9 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Warp 1.10 straight-only + K=3** vs v8: tuning -0.0036 [-0.0131, +0.0049] W26/L6; held-out -0.0073 [-0.0198, +0.0028] W18/L9; combined -0.0053 [-0.0129, +0.0013], 5 new zeros (4 offroad, 1 at-fault; 2 shared with idx19). **Tested properly, no gain.**
 - **PCS proxy refit** (same tool/commit as 11-04, 22 subjects incl. both candidates, 552 scenes, 3 fit seeds; `scratchpad/pcs/fit2_s{42,1,2}`), PCS minus v8 (g2sk3): k3idx19 +0.23 / +0.02 / +0.36; tw110 +0.24 / +0.02 / +0.11; posterior std ~0.2; seed 1 compressed again. Both proxy-positive but inside fit noise, and the population is ours only. Many small wins vs a few full zeros is exactly the mean/IRT split; the held-out zeros are on scenes every v0.2 variant passes, which the board's IRT (with stronger entries) is likely to punish.
 - **Verdict:** warp: tested properly, no gain. idx19 on K=3: no gain shown (tuning gain does not hold on held-out; same 4 scenes break deterministically; proxy gain within noise). v8 unchanged. Fresh-part confirmation not run (pre-set condition was positive on both sets).
+
+### 2026-11-08: v8 pushed (Aman)
+- Pre-push checks (Mac, `local/n2:1`): entry.py md5 1252015d… = repo, `G2_START_K=3`, checkpoint sha256 d7113ef3… (released v0.2.0 posttrain seed 0), /opt/NOTICE present. No controller gains (defaults).
+- `CLI limits`: 3 official left this month, nuplan-warmup 2 left; `v8` absent from the registry before the push.
+- **`teams/amanupg:v8` pushed, digest sha256:5ea4001e7879bdb870784efd1e46c7e1879ebebbd87f13c482e9bad436cd5ab8** = local image id `5ea4001e7879` (the cluster-verified N2 image). Many layers already present (shared with earlier pushes).
+- Open, Aman's call: HF checkpoint licence changed to CC BY-NC-SA 4.0 on 10-29; the image uses revision 56edbe90 (10-21, Apache-2.0 at the time), which NOTICE.n2 states.
