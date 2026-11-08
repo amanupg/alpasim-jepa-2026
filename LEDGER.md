@@ -901,3 +901,5 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - `CLI limits`: 3 official left this month, nuplan-warmup 2 left; `v8` absent from the registry before the push.
 - **`teams/amanupg:v8` pushed, digest sha256:5ea4001e7879bdb870784efd1e46c7e1879ebebbd87f13c482e9bad436cd5ab8** = local image id `5ea4001e7879` (the cluster-verified N2 image). Many layers already present (shared with earlier pushes).
 - Open, Aman's call: HF checkpoint licence changed to CC BY-NC-SA 4.0 on 10-29; the image uses revision 56edbe90 (10-21, Apache-2.0 at the time), which NOTICE.n2 states.
+- **v8 submitted to `nuplan` (Aman, 2026-11-08 20:00:33 UTC): submission `fcd5b9dd-52d6-4722-bb5c-24c6726f596e`**, image `teams/amanupg:v8` (digest 5ea4001e…), no controller gains. QUEUED 1/1. Monthly count 1 of 3 (2 left); the earlier attempt failed locally on an expired ECR login and used nothing. Throughput limit on nuplan is 3,000 s wall time (v6 used 1,189 s; v8 drops v6's judge, so expected lighter).
+- Previous nuplan scores (board PCS-scale field): v6 1.766, v0.3-a15int8-1hz 1.278.
