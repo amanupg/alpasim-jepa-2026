@@ -1,0 +1,19 @@
+# Candidate N3 = candidate N (local/n:1: py123d_garage v0.2.2 + released v0.2.0 joint64 posttrain, unchanged driver)
+# with the released posttrain seed 2 (model_2.pth, sha256 e450965d...) in place of seed 0. No add-ons.
+# Why (LEDGER 2026-11-09): on the host's published per-scene nuPlan results (1,485 public scenes, reproduced by ours
+# on 489/550 scenes identically), seed 2 is the only released checkpoint ahead of seed 0 (+0.006 mean) and ranks first
+# of all 12 released checkpoints under the organisers' PCS (zoib) fit, 3 fit seeds.
+# Build from alpasim-jepa/:
+#   docker buildx build --platform linux/amd64 --load -f container/Dockerfile.n3 \
+#     --build-context run=container/assets/py123d/n_seed2 --build-context legal=container -t local/n3:1 .
+FROM local/n:1
+RUN rm /opt/checkpoint/model_0.pth
+COPY --from=run model_2.pth /opt/checkpoint/model_2.pth
+COPY --from=legal NOTICE.n3 /opt/NOTICE
+RUN echo "e450965d5d8139173cb3ce4b1b1c0d186e2bb1da3b89f6f2a7e95b2ea0168e50  /opt/checkpoint/model_2.pth" | sha256sum -c - \
+    && echo "0fd09cd6551edf0ea37cd022ff03beea26f0bec69c450a1780902e2a896bc546  /opt/checkpoint/config.yaml" | sha256sum -c -
+ENV PY123D_GARAGE_CONFIG="\
+hydra.run.dir=/tmp/alpasim_driver \
+policy_config.evaluation_checkpoint_files=[/opt/checkpoint/model_2.pth] \
+policy_config.evaluation_sensor_rig_file=/opt/checkpoint/sensor_rig.yaml \
+git_hash=ad6cb51 "
