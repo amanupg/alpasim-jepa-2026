@@ -1,0 +1,11 @@
+AlpaSim E2E Challenge 2026, nuPlan track submission (team amanupg)
+
+This image packages, unmodified:
+1. py123d_garage v0.2.2 (kesai-labs/py123d_garage @ ad6cb51), Apache License 2.0, Copyright (c) 2026 KE:SAI.
+   https://github.com/kesai-labs/py123d_garage
+2. Checkpoint v0.2.0/ltf-base-waypoints-68M/posttrain/model_1.pth (seed 1, sha256 ae1619d5...) and its config.yaml and sensor_rig_nuplan.yaml from
+   Hugging Face kesai-labs/py123d_garage_pretrained_checkpoints @ 56edbe90a71a3fd4baee2d5f2f2da0bb7e722364,
+   Apache License 2.0 at that revision (the repository was relicensed to CC BY-NC-SA 4.0 on 2026-10-29). Trained by KE:SAI on public datasets (Physical AI AV, NuRec, nuPlan train/val).
+3. alpasim_grpc 0.54.0 built from NVlabs/alpasim e2e_challenge @ e121e59, Apache License 2.0, Copyright (c) NVIDIA.
+4. Base image nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04 and the Python packages pinned by py123d_garage's
+   pyproject.toml, each under its own license.

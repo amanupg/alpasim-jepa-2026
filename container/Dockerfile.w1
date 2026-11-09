@@ -1,0 +1,20 @@
+# Candidate W1 = candidate N (local/n:1: py123d_garage v0.2.2, unchanged driver) with the released v0.2.0
+# ltf-base-waypoints-68M posttrain seed 1 (model_1.pth, sha256 ae1619d5...) and its own config.yaml in place of
+# joint64 seed 0. No add-ons.
+# Why (LEDGER 2026-11-09): the host's README for this checkpoint names seed 1 as "the seed on the leaderboard" and lists
+# nuPlan board scene 0.938, 0.981 km per at-fault incident, 0.590 m to GT; the host entry 093-nuplan-v1 (PCS 2181,
+# entry rank 3-4) shows 0.944 / 0.981 / 0.590. Unchanged released joint64 seed 0 scores ~2080 (4 teams).
+# Build from alpasim-jepa/:
+#   docker buildx build --platform linux/amd64 --load -f container/Dockerfile.w1 \
+#     --build-context run=container/assets/py123d/w_seed1 --build-context legal=container -t local/w1:1 .
+FROM local/n:1
+RUN rm /opt/checkpoint/model_0.pth /opt/checkpoint/config.yaml
+COPY --from=run model_1.pth config.yaml /opt/checkpoint/
+COPY --from=legal NOTICE.w1 /opt/NOTICE
+RUN echo "ae1619d546e5aacfa7540b2b5edbcdf49b2f321b7fccd94374452eded243aaca  /opt/checkpoint/model_1.pth" | sha256sum -c - \
+    && echo "6a2f472de1d4e9b1980f3817d36c2de8fd4be5901f4a4c08f81fd9386f7e66c2  /opt/checkpoint/config.yaml" | sha256sum -c -
+ENV PY123D_GARAGE_CONFIG="\
+hydra.run.dir=/tmp/alpasim_driver \
+policy_config.evaluation_checkpoint_files=[/opt/checkpoint/model_1.pth] \
+policy_config.evaluation_sensor_rig_file=/opt/checkpoint/sensor_rig.yaml \
+git_hash=ad6cb51 "
