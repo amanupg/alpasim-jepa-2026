@@ -105,6 +105,8 @@ elif [ $DRIVER = garage2 ]; then
 #      G2_CKPTS="<file> [<file> ...]" (several = ensemble, plans averaged; default joint64 posttrain seed 0),
 #      G2_RIG (default the checkpoint dir's sensor_rig_nuplan.yaml), G2_OVERRIDES (driver settings, e.g. route_memory=true)
 #      G2_MODULE=g2_addons.entry: our add-ons around the same driver (src/g2_addons; G2_START_* env, start-from-rest)
+# G2_SHADOW=1: shadow logging (src/g2_shadow, plans unchanged) into $RUN/shadow
+  [ "${G2_SHADOW:-0}" = 1 ] && { export G2_SHADOW_DIR=$RUN/shadow G2_MODULE=g2_shadow.entry; mkdir -p $G2_SHADOW_DIR; }
   source $B/cluster/garage2_env.sh || exit 5
   V2=$B/weights/py123d/v0.2.0/ltf-base-joint64-68M/posttrain
   read -ra _ck <<< "${G2_CKPTS:-$V2/model_0.pth}"
