@@ -14,7 +14,9 @@ Action, G2_NUDGE_MODE:
   A  wait-then-go plans only (the plan moves >= 3 m by 6.4 s after waiting >= 0.5 s): drop the waiting prefix so the
      model's own motion starts now (as v8 start-now). Plans that stay stopped are left alone.
   B  as A, and for plans that stay stopped: a gentle start along the route (accelerate at G2_NUDGE_ACC m/s^2 up to
-     G2_NUDGE_VMAX m/s), only if the route passes within 2 m of the ego.
+     G2_NUDGE_VMAX m/s), only if the route heads within 20 deg of straight ahead over its first 10 m.
+     G2_NUDGE_CREEP_FROM_REST=1: the gentle start only while the ego has not yet reached G2_NUDGE_V in the session
+     (on NuRec, creeping during mid-scene stops, likely at lights the trigger cannot see, caused 2 new zeros).
 Off unless G2_NUDGE_MODE is A or B. Firings are logged to G2_NUDGE_LOG (a directory) if set. The scene id comes from
 the local debug info only (absent in benchmark runs); it is used for log names, never to drive.
 """
@@ -42,6 +44,7 @@ D, C, R, S = 25.0, 2.0, 30.0, 15.0
 ACC = float(os.environ.get("G2_NUDGE_ACC", "1.0"))
 VMAX = float(os.environ.get("G2_NUDGE_VMAX", "4.0"))
 LATCH = os.environ.get("G2_NUDGE_LATCH", "1") == "1"
+CREEP_FROM_REST = os.environ.get("G2_NUDGE_CREEP_FROM_REST", "0") == "1"   # creep only if the ego has not moved yet
 LOGDIR = os.environ.get("G2_NUDGE_LOG", "")
 START_D, START_WAIT_S, MOVE_M, DT = 3.0, 0.5, 0.3, 0.1
 _tls = threading.local()
@@ -177,6 +180,7 @@ def _nudge(session, session_uuid: str, poses: np.ndarray) -> np.ndarray:
     route_local = session.route_xy_local
     route = _resample(_to_rig(np.asarray(route_local)[:, :2], session.ego_pose_local)) if len(route_local) else np.zeros((0, 2))
     speed = float(session.speed_mps)
+    session._g2_vmax = max(getattr(session, "_g2_vmax", 0.0), speed)
     hit = fires(speed, poses, boxes, route)
     run = getattr(session, "_g2_nudge_run", 0) + 1 if hit else 0
     session._g2_nudge_run = run
@@ -184,7 +188,7 @@ def _nudge(session, session_uuid: str, poses: np.ndarray) -> np.ndarray:
     if not hit or (run < K and not latched):
         return poses
     new, kind = start_now(poses), "drop_wait"
-    if new is None and MODE == "B":
+    if new is None and MODE == "B" and not (CREEP_FROM_REST and session._g2_vmax >= V):
         new, kind = creep(route, speed), "creep"
     plan_no = int(session.num_plans) - 1
     _log(session, session_uuid, {"plan": plan_no, "speed": speed, "run": run, "kind": kind if new is not None else "none"})
@@ -198,7 +202,7 @@ def _nudge(session, session_uuid: str, poses: np.ndarray) -> np.ndarray:
 if __name__ == "__main__":
     if LOGDIR:
         os.makedirs(LOGDIR, exist_ok=True)
-    LOG.warning("g2 nudge: mode=%s K=%d V=%.2f acc=%.1f vmax=%.1f latch=%d log=%s",
-                MODE or "off", K, V, ACC, VMAX, LATCH, LOGDIR or "-")
+    LOG.warning("g2 nudge: mode=%s K=%d V=%.2f acc=%.1f vmax=%.1f latch=%d creep_from_rest=%d log=%s",
+                MODE or "off", K, V, ACC, VMAX, LATCH, CREEP_FROM_REST, LOGDIR or "-")
     install()
     evaluate.main()
