@@ -31,6 +31,8 @@ env | grep -E "^G2_" | sort > $RUN/variant.env
 # ---- driver: py123d_garage v0.2.2 natively (same as sim_nuplan.sbatch DRIVER=garage2), NuRec sensor rig of the checkpoint
 # G2_SHADOW=1: shadow logging (src/g2_shadow, plans unchanged) into $RUN/shadow
 [ "${G2_SHADOW:-0}" = 1 ] && { export G2_SHADOW_DIR=$RUN/shadow G2_MODULE=g2_shadow.entry; mkdir -p $G2_SHADOW_DIR; }
+# G2_NUDGE_MODE=A|B: stall nudge (src/g2_nudge, candidate fix 1), firings logged into $RUN/nudge
+[ -n "${G2_NUDGE_MODE:-}" ] && { export G2_NUDGE_LOG=$RUN/nudge G2_MODULE=g2_nudge.entry; mkdir -p $G2_NUDGE_LOG; }
 source $B/cluster/garage2_env.sh || exit 5
 V2=$B/weights/py123d/v0.2.0/ltf-base-joint64-68M/posttrain
 read -ra _ck <<< "${G2_CKPTS:-$V2/model_0.pth}"
