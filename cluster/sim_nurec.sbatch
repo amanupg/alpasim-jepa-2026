@@ -71,7 +71,7 @@ apptainer exec -B $B $SIF /repo/.venv/bin/python -c "import yaml,json; json.dump
 SD=$TMPDIR/sifdir; mkdir -p $SD; for d in $B/sandbox/*; do ln -s $d $SD/; done
 if [ ! -d $B/sandbox/nre-ga_26.04/usr ]; then
   rm -f $SD/nre-ga_26.04
-  APPTAINER_TMPDIR=$TMPDIR/at APPTAINER_CACHEDIR=$TMPDIR/ac apptainer build --sandbox $SD/nre-ga_26.04 $B/sif/nre-ga_26.04.sif > $RUN/sandbox.log 2>&1 \
+  mkdir -p $TMPDIR/at $TMPDIR/ac; APPTAINER_TMPDIR=$TMPDIR/at APPTAINER_CACHEDIR=$TMPDIR/ac apptainer build --sandbox $SD/nre-ga_26.04 $B/sif/nre-ga_26.04.sif > $RUN/sandbox.log 2>&1 \
     || { tail -20 $RUN/sandbox.log; exit 6; }
 fi
 TMPDIR=/tmp python3 $B/src/compose_apptainer.py $RUN/docker-compose.json --sif-dir $SD --repo-host $REPO \
