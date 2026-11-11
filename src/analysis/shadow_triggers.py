@@ -68,7 +68,12 @@ def load_plans(run: str) -> dict[str, list[dict]]:
 
 
 def corridor_lateral(route: np.ndarray, pts: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Arc length along the route and lateral distance of each point (straight ahead if no route)."""
+    """Arc length along the route and lateral distance of each point (straight ahead if no route).
+
+    The served route often starts well ahead of the ego (about 40 m on straight roads); as the driver does for its
+    target points, the path is the walk from the ego onto the route, so the ego is prepended."""
+    if len(route):
+        route = np.vstack([np.zeros((1, 2)), route])
     if len(route) < 2:
         return pts[:, 0], np.abs(pts[:, 1])
     seg = np.diff(route, axis=0)
