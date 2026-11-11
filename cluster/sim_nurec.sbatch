@@ -73,6 +73,10 @@ if [ ! -d $B/sandbox/nre-ga_26.04/usr ]; then
   rm -f $SD/nre-ga_26.04
   mkdir -p $TMPDIR/at $TMPDIR/ac; APPTAINER_TMPDIR=$TMPDIR/at APPTAINER_CACHEDIR=$TMPDIR/ac apptainer build --sandbox $SD/nre-ga_26.04 $B/sif/nre-ga_26.04.sif > $RUN/sandbox.log 2>&1 \
     || { tail -20 $RUN/sandbox.log; exit 6; }
+  # NRE creates its kernel cache dir on first run; a fresh unpack lacks it, but compose_apptainer binds onto it
+  NRT=$SD/nre-ga_26.04/app/internal/scripts/pycena/runtime
+  ls -d $NRT/* $NRT/pycena_nrm_full.runfiles/_main/libs/* > $RUN/nre_layout.txt 2>&1
+  mkdir -p $NRT/pycena_nrm_full.runfiles/_main/libs/nrend/ptx_cache
 fi
 TMPDIR=/tmp python3 $B/src/compose_apptainer.py $RUN/docker-compose.json --sif-dir $SD --repo-host $REPO \
   --logdir $RUN/svc-logs --cache-dir $B/cache/containers --timeout 3600
