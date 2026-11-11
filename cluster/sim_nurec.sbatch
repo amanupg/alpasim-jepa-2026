@@ -51,7 +51,7 @@ grep -q "garage driver listening" $RUN/driver.log || { tail -40 $RUN/driver.log;
 
 # ---- scenes: chunk CHUNK of NCHUNK of the sorted curated-val ids (or SCENE_IDS_FILE)
 IDS_ALL=${SCENE_IDS_FILE:-$B/data/nurec_curated_val_ids.txt}
-awk -v c=$CHUNK -v n=$NCHUNK 'NR % n == c' $IDS_ALL > $RUN/scene_ids.txt
+tr -d '\r' < $IDS_ALL | awk -v c=$CHUNK -v n=$NCHUNK 'NF && NR % n == c' > $RUN/scene_ids.txt   # id list has CRLF endings
 [ -n "${NSCENES:-}" ] && { head -$NSCENES $RUN/scene_ids.txt > $RUN/s.tmp; mv $RUN/s.tmp $RUN/scene_ids.txt; }
 echo "scenes: chunk $CHUNK of $NCHUNK from $IDS_ALL ($(wc -l < $RUN/scene_ids.txt))" > $RUN/scenes_source.txt
 SEL="+nurec_scenes=curated_val scenes.test_suite_id=null \"scenes.scene_ids=[$(sed "s/.*/'&'/" $RUN/scene_ids.txt | paste -sd, -)]\" scenes.limit_to_first_n=0"
