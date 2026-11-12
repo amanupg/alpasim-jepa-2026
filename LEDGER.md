@@ -1034,3 +1034,8 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - Validity: every run exit 0 and fully scored; paired reruns on the same scenes and GPU type; firing sets from the base pass. Power: weak for incidents, since rerun noise alone made 2 new zeros in 88 scenes.
 - **Verdict: no gain shown on NuRec (CI includes 0), and A adds at-fault front collisions after it acts (3 vs 1 in the noise half; both clean-scene ones ~2 s after drop_wait).** This is v8's board failure mode at a lower rate. Not a safe candidate as is.
 - Fresh nuPlan part 015 (W1 0 / A) running: 13865497 (L40S ins036).
+
+## 2026-11-11 Aman: submit A ("go out on a limb"); image local/w1n:1 built
+- Aman's call after the NuRec read: submit W1 + nudge A rather than plain W1. Board order is by team best entry (PAI board, LEDGER alpasim), so with 2 slots plain W1 (`local/w1:1`, ~2181) stays available as the fallback if A scores lower.
+- **Image `local/w1n:1`** (`container/Dockerfile.w1n`, `NOTICE.w1n`): FROM `local/w1:1` + `/opt/addons/g2_nudge`, `ENV PYTHONPATH=/opt/addons G2_NUDGE_MODE=A G2_NUDGE_K=3`, ENTRYPOINT `python -m g2_nudge.entry` (same config string as W1). Checked inside: entry.py md5 93677e79… = repo = cluster copy used for the NuRec runs; model_1.pth sha256 ae1619d5…, config.yaml 6a2f472d…; install() patches TransfuserPolicy.forward and GarageDriver._plan; MODE A, K 3, latch on, creep-from-rest off, no log dir. Id sha256:da1fe936…, 12.8 GB. Not pushed. Tag: v9 (next neutral tag) unless the registry says otherwise.
+- Next: archive to the cluster, imagep run on fresh parts paired against the garage2 A runs (same check as v8's image).

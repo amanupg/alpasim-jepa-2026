@@ -1,0 +1,12 @@
+# Candidate W1N = W1 (local/w1:1: py123d_garage v0.2.2 + released v0.2.0 ltf-base-waypoints-68M posttrain seed 1)
+# + our stall nudge add-on (src/g2_nudge, mode A, K=3; LEDGER 2026-11-11: fresh nuPlan 600 scenes +0.0118
+# [+0.0051, +0.0198], 0 losses; NuRec 167 firing scenes: acted +0.046 [-0.012, +0.104], 3 new at-fault collisions
+# vs 1 in the no-action half). Submitted at Aman's call. Build from alpasim-jepa/:
+#   docker buildx build --platform linux/amd64 --load -f container/Dockerfile.w1n \
+#     --build-context addons=src/g2_nudge --build-context legal=container -t local/w1n:1 .
+FROM local/w1:1
+COPY --from=addons __init__.py entry.py /opt/addons/g2_nudge/
+COPY --from=legal NOTICE.w1n /opt/NOTICE
+ENV PYTHONPATH=/opt/addons G2_NUDGE_MODE=A G2_NUDGE_K=3
+RUN python -c "import sys; sys.argv=['x']; import g2_nudge.entry as e; assert e.MODE == 'A' and e.K == 3 and not e.CREEP_FROM_REST and e.LOGDIR == ''; print('add-on ok', e.MODE, e.K)"
+ENTRYPOINT ["sh", "-c", "exec python -m g2_nudge.entry ${PY123D_GARAGE_CONFIG} host=\"${ALPASIM_DRIVER_HOST:-0.0.0.0}\" port=\"${ALPASIM_DRIVER_PORT:-6789}\" \"$@\"", "sh"]
