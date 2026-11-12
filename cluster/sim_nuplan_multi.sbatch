@@ -22,7 +22,9 @@ for M in ${VARIANTS:-0 A B}; do
   CKV=CKPTS_$M; CK=${!CKV:-${G2_CKPTS0:-}}
   echo "=== variant $M ($(date)) ckpts: ${CK:-default}"
   if [ -n "$CK" ]; then export G2_CKPTS="$CK"; fi
-  env TMPDIR=$BASE_TMP/v$M TAG=${TAG:-multi}$M G2_NUDGE_MODE=$NM bash $B/cluster/sim_nuplan.sbatch
+  # ENV_<variant>="K=V ..." (exported): extra environment for that variant only, e.g. G2_MODULE=g2_slow.entry G2_SLOW_F=0.9
+  EV=ENV_$M; read -ra XE <<< "${!EV:-}"; echo "    extra env: ${XE[*]:-none}"
+  env TMPDIR=$BASE_TMP/v$M TAG=${TAG:-multi}$M G2_NUDGE_MODE=$NM "${XE[@]}" bash $B/cluster/sim_nuplan.sbatch
   echo "=== variant $M exit $?"
   rm -rf $BASE_TMP/v$M
   sleep 30   # let the previous run's services release their ports
