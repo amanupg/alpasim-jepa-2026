@@ -1057,3 +1057,9 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - Validity: both exit 0, all scenes scored, same scene lists and GPU types as the reference runs. So `local/w1n:1` drives exactly as the A we tested; a packaging slip is ruled out. It says nothing new about A vs W1 on the board.
 - **Fresh part 015 (L40S ins036, 13865497), W1 0 vs A, 91 scenes both arms, exit 0: +0.0231 [+0.000, +0.054], W3/L0, new zeros 0, fixed 0.** All three wins are stuck scenes (0.339→0.741, 0.300→1.000, 0.004→1.000). Consistent with earlier fresh nuPlan parts: A helps on nuPlan with no losses; NuRec is where A's collisions show up, and NuRec has been the better guide to the board (2 of 2, weak).
 - Cluster archive `tmp/w1n.tar.gz` deleted after the check (own temp file).
+
+## 2026-11-12 Rule: final runs use the team's highest-scoring submission
+- NVlabs/alpasim#232 (asked for PAI, 2026-10-31; organiser mwatson-nvidia, 2026-11-01): the container for the final run is not chosen by the team; "it will be based on the highest scoring submission". Host containers do not take a top-3 final-run place.
+- Challenge Space (Final-run selection): at least the top 3 teams per track get final runs; nuPlan selected teams get two extra evaluation runs (Harmonizer stays off for nuPlan). Accepted submissions count even if evaluation fails.
+- The Contestant Guide (e2e_challenge README, current branch) does not state the rule; #232 is the only organiser statement found, and it was asked about PAI.
+- Consequence: submission order does not matter. If v9 (A) scores below W1, the W1 entry is the one that counts.
