@@ -1019,3 +1019,18 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
   - never acted (56): +0.0002 [-0.0060, +0.0070], W9 / L11, worst -0.110. That is NuRec rerun noise (the scene drives as the base until the add-on acts), so the scene-level losses seen per group are mostly noise.
 - **v8 vs j64s0 rerun, g1 (36 scenes): +0.0131 [+0.0007, +0.0287], W16 / L7, no new zeros** (one clean 1.0 -> 0.914). v8 pooled so far: chunk 0 -0.0245 (1 at-fault collision), g0 +0.0050, g1 +0.0131.
 - Firing set start-now on j64 c11: exact 11 / loose 19; submitted fsg5 j64re / v8 = 13865320-21.
+
+## 2026-11-11 NuRec complete for A: at-fault collisions after A acts; A not clean
+- All runs exit 0: fsg3 re / A = 13864500-01 (31 scenes), fsg4 re / A = 13865175-76 (26, chunks 10-11). Aman: K=2 not to be tested ("k=2 seems kinda pointless"); GPU-count cap lifted through the deadline.
+- **fsg3 A vs W1 rerun: -0.0025 [-0.138, +0.133], W14 / L9, 3 new zeros, 2 fixed. fsg4: -0.0352 [-0.116, +0.009], W5 / L7, 1 new zero.**
+- New zeros, inspected:
+  - `clipgt-229791a5` (fsg3, clean 1.0): A drop_wait at plan 14, **at-fault front collision ~2 s later**. Caused by A.
+  - `clipgt-58814d76` (fsg4, clean 1.0): A drop_wait at plan 9 after 8 stopped plans, **at-fault front collision ~2 s later**. Caused by A.
+  - `clipgt-0b54c8d4` (at-fault collision) and `clipgt-a5599793` (off-road, at ~7 s): A never acted. NuRec rerun noise.
+- **Pooled, all 167 firing-set scenes (chunks 0-11):**
+  - acted (79): +0.0461 [-0.0117, +0.1041], W39 / L8; new zeros 2, fixed zeros 2; new at-fault collisions 3, removed 1.
+  - never acted (88, = noise): -0.0112 [-0.045, +0.018]; new zeros 2, fixed 1; new at-fault 1, removed 0.
+  - over all 440 NuRec scenes: +0.0060 per scene (all changes) / +0.0083 (acted only).
+- Validity: every run exit 0 and fully scored; paired reruns on the same scenes and GPU type; firing sets from the base pass. Power: weak for incidents, since rerun noise alone made 2 new zeros in 88 scenes.
+- **Verdict: no gain shown on NuRec (CI includes 0), and A adds at-fault front collisions after it acts (3 vs 1 in the noise half; both clean-scene ones ~2 s after drop_wait).** This is v8's board failure mode at a lower rate. Not a safe candidate as is.
+- Fresh nuPlan part 015 (W1 0 / A) running: 13865497 (L40S ins036).
