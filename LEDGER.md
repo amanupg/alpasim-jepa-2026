@@ -1063,3 +1063,10 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - Challenge Space (Final-run selection): at least the top 3 teams per track get final runs; nuPlan selected teams get two extra evaluation runs (Harmonizer stays off for nuPlan). Accepted submissions count even if evaluation fails.
 - The Contestant Guide (e2e_challenge README, current branch) does not state the rule; #232 is the only organiser statement found, and it was asked about PAI.
 - Consequence: submission order does not matter. If v9 (A) scores below W1, the W1 entry is the one that counts.
+
+## 2026-11-12 nuPlan board read (240 entries, 60 teams; snapshot scratchpad lb_nuplan_1112.json)
+- All PCS values were refit since 11-08 (same submissions moved -112..+102). W1 host 093: 2181 -> 2247, now rank 5. Our best v8 1903 (rank 41); no W1 entry of ours on the board.
+- Top three entries share exactly 2279 (nu-vail-36 mean 0.988, 3.79 km/incident; SymPhi sp-1104b 0.971; sp-1029a 0.969). Looks like a ceiling or tie in the fit, not equal driving.
+- Team best order (host excluded from final-run places): nuVAIL 2279, SymPhi 2279, Lucifer AI 2261 (lf-009), then a W1 entry would sit ~2247, ahead of CQUPT 2234 and 메타몽 2233.
+- W1-based entries from other teams (same dist_to_gt ~0.59): CQUPT 0.9405 / 0.883 km -> -13 PCS vs W1; 메타몽 0.9395 / 0.841 -> -14; Lucifer lf-010 0.9433 / 0.929 -> -49; lf-009 0.9454 / 1.039 -> +14. So add-ons on W1 have mostly landed below it; one small gain shows as +14.
+- To reach top 3, A must beat lf-009's 2261, about +14 PCS over W1. Board stays sensitive: TerraDrive 0.9205 vs 0.9202 mean -> 2182 vs 2022.
