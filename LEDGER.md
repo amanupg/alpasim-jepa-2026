@@ -1074,3 +1074,4 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 ## 2026-11-12 v9 pushed (Aman)
 - Before the push: CLI token refreshed (configure-token, hidden prompt); `CLI limits`: 2 official left this month (1 used), nuplan-warmup 2 left; `v9` absent from the registry; `ecr-login` OK.
 - **`teams/amanupg:v9` pushed, digest sha256:da1fe936e1267f9e6ca8c5fb0a98471b5ba4d7437da7f111b497a622fb66f61d** = `local/w1n:1` (W1 + nudge A, K=3; image check passed). Next: nuplan-warmup, then the official submit if it succeeds.
+- **v9 warmup submitted (Aman, 2026-11-12):** track `nuplan-warmup`, submission_id `1be2985a-7470-4ac1-9473-a0bc0a8bd002`, QUEUED 1/1. No official slot used.
