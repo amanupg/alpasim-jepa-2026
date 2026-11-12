@@ -1070,3 +1070,7 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - Team best order (host excluded from final-run places): nuVAIL 2279, SymPhi 2279, Lucifer AI 2261 (lf-009), then a W1 entry would sit ~2247, ahead of CQUPT 2234 and 메타몽 2233.
 - W1-based entries from other teams (same dist_to_gt ~0.59): CQUPT 0.9405 / 0.883 km -> -13 PCS vs W1; 메타몽 0.9395 / 0.841 -> -14; Lucifer lf-010 0.9433 / 0.929 -> -49; lf-009 0.9454 / 1.039 -> +14. So add-ons on W1 have mostly landed below it; one small gain shows as +14.
 - To reach top 3, A must beat lf-009's 2261, about +14 PCS over W1. Board stays sensitive: TerraDrive 0.9205 vs 0.9202 mean -> 2182 vs 2022.
+
+## 2026-11-12 v9 pushed (Aman)
+- Before the push: CLI token refreshed (configure-token, hidden prompt); `CLI limits`: 2 official left this month (1 used), nuplan-warmup 2 left; `v9` absent from the registry; `ecr-login` OK.
+- **`teams/amanupg:v9` pushed, digest sha256:da1fe936e1267f9e6ca8c5fb0a98471b5ba4d7437da7f111b497a622fb66f61d** = `local/w1n:1` (W1 + nudge A, K=3; image check passed). Next: nuplan-warmup, then the official submit if it succeeds.
