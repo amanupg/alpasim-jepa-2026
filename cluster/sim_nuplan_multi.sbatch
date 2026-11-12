@@ -11,13 +11,17 @@
 # Several driver variants on the same scenes, one after another on ONE GPU, so they are paired on the same hardware
 # (and wait in the queue once). Each variant is a full cluster/sim_nuplan.sbatch run (run dir
 # runs/nuplan_<DRIVER>_<TAG><variant>_<jobid>, own node-local scratch). VARIANTS: space-separated, "0" = plain driver,
-# A/B = G2_NUDGE_MODE (src/g2_nudge). All other settings (DRIVER, G2_CKPTS, SCENES_FROM, TAG prefix) via --export.
+# A/B = G2_NUDGE_MODE (src/g2_nudge), other names = plain driver with CKPTS_<name> if set. All other settings (DRIVER, G2_CKPTS, SCENES_FROM, TAG prefix) via --export.
 B=/insomnia001/depts/edu/users/au2327/alpasim-jepa
+G2_CKPTS0=${G2_CKPTS:-}   # the job-wide checkpoint list, restored for variants without their own CKPTS_<name>
 BASE_TMP=${TMPDIR:?}
 for M in ${VARIANTS:-0 A B}; do
   mkdir -p $BASE_TMP/v$M
-  if [ "$M" = 0 ]; then NM=; else NM=$M; fi
-  echo "=== variant $M ($(date))"
+  case $M in A|B) NM=$M;; *) NM=;; esac
+  # CKPTS_<variant>="<file> [...]" (exported) overrides G2_CKPTS for that variant, e.g. CKPTS_E3 = a seed ensemble
+  CKV=CKPTS_$M; CK=${!CKV:-${G2_CKPTS0:-}}
+  echo "=== variant $M ($(date)) ckpts: ${CK:-default}"
+  if [ -n "$CK" ]; then export G2_CKPTS="$CK"; fi
   env TMPDIR=$BASE_TMP/v$M TAG=${TAG:-multi}$M G2_NUDGE_MODE=$NM bash $B/cluster/sim_nuplan.sbatch
   echo "=== variant $M exit $?"
   rm -rf $BASE_TMP/v$M
