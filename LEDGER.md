@@ -1009,3 +1009,13 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
   - Net 0 but it trades a fixed off-road for an **at-fault collision, the incident type v8 added on the board**. Creep-from-rest does not make the creep safe on NuRec. **Bs dropped**; cancelled pending fsg3 Bs 13864502 (fsg1/fsg2 Bs, already >1 h in, left to finish for the record).
 - **v8 vs j64s0 rerun, group 0 (36 scenes): +0.0050 [+0.0010, +0.0112], W10 / L0, no new zeros.** Chunk 0 was -0.0245 with one at-fault collision; pooled verdict after all groups.
 - Chunks 10-11 base done (w1 c11 13863848 exit 0, 35 scenes; j64 c11 13864490 still running). Firing sets: nudge on W1 c10+c11 exact 12 / loose 26; start-now on j64 c10 exact 7 / loose 11. Submitted fsg4: W1 rerun / A = 13865175-76 on the 26; j64s0 rerun / v8 = 13865177-78 on the 11.
+
+## 2026-11-11 NuRec groups 1-2: A clean; its losses are rerun noise
+- All runs exit 0: fsg1 re / A / Bs / j64re / v8 = 13864491 / 92 / 93 / 13863868 / 13864494; fsg2 re / A / Bs = 13864495-97. j64s0sh c11 13864490 exit 0 (35 scenes).
+- **A vs W1 rerun:** g1 +0.0276 [+0.0005, +0.0739], W12 / L5, no new zeros, 1 fixed zero (collision 0 -> 0.65). g2 +0.0365 [-0.0045, +0.1068], W12 / L5, no new zeros (stuck 0.00 -> 1.0). Every loss is progress only (no collision, off-road or corridor exit). The biggest (-0.109, `clipgt-c028c8ce`) is a scene where A never acted.
+- **Bs vs W1 rerun:** g1 +0.0261, W9 / L9; g2 +0.0361, W11 / L6; no new zeros, no creep wins. Nothing over A; stays dropped (group 0 collision).
+- **A pooled over chunk 0 + groups 0-2 (110 firing-set scenes), split by whether A acted** (nudge log has a non-`none` action):
+  - **acted (54 scenes): +0.0674 [+0.0245, +0.1230], W27 / L2, worst -0.062, no new zeros.**
+  - never acted (56): +0.0002 [-0.0060, +0.0070], W9 / L11, worst -0.110. That is NuRec rerun noise (the scene drives as the base until the add-on acts), so the scene-level losses seen per group are mostly noise.
+- **v8 vs j64s0 rerun, g1 (36 scenes): +0.0131 [+0.0007, +0.0287], W16 / L7, no new zeros** (one clean 1.0 -> 0.914). v8 pooled so far: chunk 0 -0.0245 (1 at-fault collision), g0 +0.0050, g1 +0.0131.
+- Firing set start-now on j64 c11: exact 11 / loose 19; submitted fsg5 j64re / v8 = 13865320-21.
