@@ -1118,3 +1118,16 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **SC on full NuRec (440, R6000) vs W1 base: +0.0002 [-0.012, +0.012], W86 / L95, new zeros 3, fixed 6; at-fault incidents 58 vs 61 (off-road 41 vs 42, front collision 16 vs 18), km per incident 1.137 vs 1.088.** Inside rerun noise (W1 rerun vs base: -0.013, W45/L35, 5 new / 3 fixed on 167). With nuPlan neutral (691: +0.0002), **SC has no measurable effect on either track; not a candidate.**
 - Last try in this line, a stronger turns-only cap ST (F 0.6 when the plan turns > 10 deg) so that it actually binds: NuRec 12 chunks 13898590-601 (TAG w1capst), nuPlan parts 004/006/009 W1 vs ST 13898602-04. Gate unchanged: fewer at-fault incidents on NuRec beyond rerun noise and no loss on nuPlan.
 - **ST on fresh nuPlan (004/006/009, 300) vs W1 paired: -0.0079 [-0.015, +0.001], W4 / L43, new zeros 0, fixed 1.** Clear progress cost on nuPlan (the board's scene type); **fails the 'no loss on nuPlan' half; ST is not a candidate whatever NuRec shows.** NuRec run left to finish for the record (does a binding turn cap cut incidents at all).
+- **ST on full NuRec (440) vs W1 base: -0.0042 [-0.020, +0.011], W76 / L106, new zeros 7, fixed 13; at-fault incidents 52 vs 61 (off-road 35 vs 42, front collision 16 vs 18), corridor exits 12 vs 9; km per incident 1.247 vs 1.088; distance 64.9 vs 66.4 km.** A binding turn cap cuts NuRec off-road somewhat (net +6 zeros, inside or at the edge of rerun noise) but costs progress on both tracks (nuPlan -0.0079, L43/W4). Board PCS tracks mean scene score (Spearman 0.97 across the board), so **ST is not a candidate.**
+
+## 2026-11-13 Last-slot search: result
+- Nothing beat W1 on the both-tracks gate (better on NuRec and fresh nuPlan, no more at-fault incidents, beyond rerun noise). Tried since v9:
+  1. Waypoints 3-seed ensemble: NuRec -0.023, W25/L57 (147). Failed.
+  2. Hybrid driven output (actions slow / waypoints fast): impossible on W1 (no action head config).
+  3. Box-based emergency brake: offline only; early enough in 10/19 NuRec collisions, 0/3 on nuPlan (boxes missed). Not built.
+  4. Moving-only slow-down: v1 retime had a compounding bug (discarded); v2 cap 0.9: nuPlan -0.0129, W2/L89 (500). Failed.
+  5. Turns-only cap 0.8 (SC): nuPlan +0.0002 (691), NuRec +0.0002 (440), incidents 58 vs 61. No effect.
+  6. Turns-only cap 0.6 > 10 deg (ST): nuPlan -0.0079 L43/W4 (300); NuRec -0.0042, incidents 52 vs 61. Fewer incidents, less progress. Failed.
+  7. Controller gains: heading 2.0 nuPlan -0.0047, 2 new zeros (400); steering-change penalty 2.5 -0.0024, 1 new zero (400). Failed.
+- **Recommendation for the last slot: plain W1 (`local/w1:1`) as `v10`, warmup first.** Expected near the host's W1 board entry (~2259 on 11-12, refits move it), about 4th among eligible teams. Aman decides on Nov 15.
+- Leftovers: `data/mtgs_parts` (7 fresh nuPlan parts, ~175 GB, own cache) kept for now; `tmp/nre_inspect.sh`. No jobs running.
