@@ -34,10 +34,15 @@ if [ -n "${LOCAL_PART:-}" ]; then
   # Fresh held-out scenes without using the dept fileset (full on 2026-10-08): build a track root on the node's
   # /local from the shared trajdata cache + configs and MTGS asset part LOCAL_PART, and drive only the scenes of
   # that part that are in none of our shared track copies (so never used for tuning or earlier checks).
-  L=${TMPDIR:?}/nuplan_track; mkdir -p $L/navtest
+  L=${TMPDIR:?}/nuplan_track
+  # Under cluster/sim_nuplan_multi.sbatch (TMPDIR = <job tmp>/v<variant>) the part is built once per job and shared by
+  # the variants run one after another (downloading it took ~45 min per variant on 2026-11-12).
+  case $(basename $TMPDIR) in v*) L=$(dirname $TMPDIR)/nuplan_track_$LOCAL_PART;; esac
+  if [ -d $L/navtest/assets ] && [ -n "$(ls $L/navtest/assets)" ]; then echo "part $LOCAL_PART: reusing $L"; else
+  mkdir -p $L/navtest
   # trajdata cache + configs: symlinks to ../alpasim's copies (dedupe 2026-10-18; read-only, bound into the services
   # via --extra-bind below). Copying the 85k small files from GPFS took over 2 h and made earlier fresh runs time out.
-  ln -s $B/data/nuplan_track/nuplan_test $L/nuplan_test; ln -s $B/data/nuplan_track/navtest/configs $L/navtest/configs
+  ln -sfn $B/data/nuplan_track/nuplan_test $L/nuplan_test; ln -sfn $B/data/nuplan_track/navtest/configs $L/navtest/configs
   # hf resumes interrupted transfers (a piped curl stream was cut off after ~3 GB on 2026-10-08)
   for attempt in 1 2 3; do
     # token file path only, never the token itself (Aman 2026-10-10); high-performance xet for speed
@@ -47,6 +52,7 @@ if [ -n "${LOCAL_PART:-}" ]; then
   done
   tar -xzf $TMPDIR/dl/MTGS_asset/navtest/assets/part$LOCAL_PART.tar.gz -C $L || { echo "part $LOCAL_PART: download/extract failed"; exit 4; }
   rm -rf $TMPDIR/dl
+  fi
   mkdir -p $RUN/heldout
   ls $L/navtest/assets | grep -vxFf <(ls $B/data/nuplan_track/navtest/assets) > $RUN/heldout/ids.txt || true
   head -${NSCENES} $RUN/heldout/ids.txt | sed "s/.*/'&'/" | paste -sd, - > $RUN/heldout/scene_ids.txt
