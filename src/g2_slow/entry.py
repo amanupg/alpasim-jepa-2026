@@ -22,6 +22,9 @@ from py123d_garage.evaluation.alpasim.help import driver_service
 LOG = logging.getLogger("g2_slow")
 F = float(os.environ.get("G2_SLOW_F", "0.9"))
 VMIN = float(os.environ.get("G2_SLOW_VMIN", "2.0"))
+# G2_SLOW_CURVE_DEG > 0: only when the plan turns by more than this many degrees within its first 3 s (off-road, W1's
+# largest incident type, comes from drift in turns), so straight driving keeps its speed
+CURVE = float(os.environ.get("G2_SLOW_CURVE_DEG", "0"))
 DT = 0.1
 
 
@@ -38,6 +41,11 @@ def retime(poses: np.ndarray, f: float) -> np.ndarray:
     return np.column_stack([np.interp(q, t, full[:, 0]), np.interp(q, t, full[:, 1]), h])
 
 
+def turns(poses: np.ndarray) -> float:
+    """Largest absolute heading change (deg) of the plan within its first 3 s."""
+    return float(np.degrees(np.max(np.abs(np.unwrap(np.concatenate([[0.0], poses[:30, 2]]))))))
+
+
 def install() -> None:
     original = driver_service.GarageDriver._plan
 
@@ -45,7 +53,8 @@ def install() -> None:
         poses = original(self, policy, session, session_uuid)
         try:
             if poses.shape == (64, 3) and float(session.speed_mps) >= VMIN and F < 1.0:
-                return retime(poses, F)
+                if CURVE <= 0 or turns(poses) > CURVE:
+                    return retime(poses, F)
         except Exception:  # a failure here must fall back to the model's plan
             LOG.exception("slow-down failed for %s", session_uuid)
         return poses
@@ -54,6 +63,6 @@ def install() -> None:
 
 
 if __name__ == "__main__":
-    LOG.warning("g2 slow: F=%.2f vmin=%.1f", F, VMIN)
+    LOG.warning("g2 slow: F=%.2f vmin=%.1f curve_deg=%.0f", F, VMIN, CURVE)
     install()
     evaluate.main()
