@@ -44,12 +44,15 @@ if [ -n "${LOCAL_PART:-}" ]; then
   # via --extra-bind below). Copying the 85k small files from GPFS took over 2 h and made earlier fresh runs time out.
   ln -sfn $B/data/nuplan_track/nuplan_test $L/nuplan_test; ln -sfn $B/data/nuplan_track/navtest/configs $L/navtest/configs
   # hf resumes interrupted transfers (a piped curl stream was cut off after ~3 GB on 2026-10-08)
+  PC=$B/data/mtgs_parts/part$LOCAL_PART.tar.gz   # pre-fetched by cluster/fetch_parts.sbatch
+  if [ -s $PC ]; then mkdir -p $TMPDIR/dl/MTGS_asset/navtest/assets; ln -sfn $PC $TMPDIR/dl/MTGS_asset/navtest/assets/part$LOCAL_PART.tar.gz; else
   for attempt in 1 2 3; do
     # token file path only, never the token itself (Aman 2026-10-10); high-performance xet for speed
     HOME=$TMPDIR/home HF_HUB_DISABLE_TELEMETRY=1 HF_XET_HIGH_PERFORMANCE=1 HF_TOKEN_PATH=$B/.cache/hf/token $B/envs/garage/bin/hf download OpenDriveLab/AlpasimChallenge2026_nuplan_track \
       --repo-type dataset --include "MTGS_asset/navtest/assets/part$LOCAL_PART.tar.gz" --local-dir $TMPDIR/dl > /dev/null && break
     sleep 60
   done
+  fi
   tar -xzf $TMPDIR/dl/MTGS_asset/navtest/assets/part$LOCAL_PART.tar.gz -C $L || { echo "part $LOCAL_PART: download/extract failed"; exit 4; }
   rm -rf $TMPDIR/dl
   fi
