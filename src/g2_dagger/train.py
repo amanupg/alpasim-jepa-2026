@@ -30,9 +30,66 @@ from hydra import compose, initialize_config_dir
 from py123d_garage.common.config_help import CONFIG_PATH, finalize_evaluation, register_schema
 from py123d_garage.config.schema.evaluation.alpasim_config import AlpasimBenchmarkConfig
 from py123d_garage.evaluation.alpasim.help.config_help import build_policy
+from py123d_garage.policy.transfuser.network.decoder.flow_planning_decoder import _split_speed
+
+
+def masked_flow_loss(dec, tokens: torch.Tensor, label: torch.Tensor) -> torch.Tensor:
+    """The released flow-matching waypoint loss (FlowPlanningDecoder.compute_loss, waypoint head only), averaged over
+    the label steps whose mask (label[..., 3]) is 1 instead of over all 64."""
+    assert dec._action_config is None and not dec._num_path_points, "waypoint-only flow head expected"
+    flow = dec._config.planning_config.flow_config
+    draws = flow.num_noise_draws
+    pose, mask = label[..., :3].float(), label[..., 3].float()
+    context, _ = _split_speed(tokens)
+    target = dec._pack((pose - dec.pose_mean) / dec.pose_scale, None, None).repeat_interleave(draws, dim=0)
+    context = dec._noise_draw_context(context)
+    pose, mask = pose.repeat_interleave(draws, dim=0), mask.repeat_interleave(draws, dim=0)
+    noise_level = torch.rand(target.shape[0], device=target.device) ** (1.0 / flow.noise_level_beta_alpha)
+    flow_time = torch.ones_like(noise_level) - noise_level
+    noisy = flow_time[:, None, None] * target + noise_level[:, None, None] * torch.randn_like(target)
+    velocity = dec._velocity(context, noisy, flow_time)
+    clean, _, _ = dec._unpack(noisy + noise_level[:, None, None] * velocity)
+    pred = clean * dec.pose_scale + dec.pose_mean
+    err = (pred[..., :2] - pose[..., :2]).abs().mean(-1) + (pred[..., 2] - pose[..., 2]).abs()
+    return (err * mask).sum() / mask.sum().clamp(min=1.0)
+
+def served_plan(dec, tokens: torch.Tensor) -> torch.Tensor:
+    """The plan the driver serves (FlowPlanningDecoder._integrate with noise_temperature 0: Euler steps from the zero
+    state, one draw), with autograd on. Call with the decoder in eval mode, as _integrate runs it."""
+    flow = dec._config.planning_config.flow_config
+    assert flow.noise_temperature == 0.0 and flow.num_averaged_samples == 1, "deterministic sampling expected"
+    assert dec._action_config is None and not dec._num_path_points, "waypoint-only flow head expected"
+    context, _ = _split_speed(tokens)
+    b = context.shape[0]
+    state = torch.zeros((b, 1, dec._num_state_values), device=context.device, dtype=torch.float32)
+    for step in range(flow.num_inference_steps):
+        t = torch.full((b,), step / flow.num_inference_steps, device=state.device, dtype=state.dtype)
+        state = state + dec._velocity(context, state, t) / flow.num_inference_steps
+    wp, _, _ = dec._unpack(state)
+    return wp * dec.pose_scale + dec.pose_mean
+
+
+def served_loss(dec, tokens: torch.Tensor, label: torch.Tensor) -> torch.Tensor:
+    """Masked L1 (xy mean + yaw, as pose_l1_loss) between the served plan and the label."""
+    pred = served_plan(dec, tokens)
+    pose, mask = label[..., :3].float(), label[..., 3].float()
+    err = (pred[..., :2] - pose[..., :2]).abs().mean(-1) + (pred[..., 2] - pose[..., 2]).abs()
+    return (err * mask).sum() / mask.sum().clamp(min=1.0)
+
+
+def rollout_scores(run_glob: str) -> dict:
+    """rollout_id (= driver session id) -> (scene, score) from every matching run's results-summary.json."""
+    out = {}
+    for p in glob.glob(os.path.join(run_glob, "aggregate", "results-summary.json")):
+        for r in json.load(open(p)).get("rollouts", []):
+            out[r["rollout_id"]] = (r["clipgt_id"], float(r.get("score") or 0.0))
+    return out
+
 
 DT_US = 100_000
 N = 64
+EXTRAP_US = 500_000
+MIN_VALID = 15
 
 
 def interp_traj(arr: np.ndarray, t_us: np.ndarray) -> np.ndarray:
@@ -71,7 +128,74 @@ def make_label(rec: dict, t_rec: float, lag_m: float) -> tuple[np.ndarray, dict]
     w = np.minimum(1.0, np.arange(0, N + 1) * 0.1 / t_rec)[:, None]
     lab = H - (1.0 - w) * H[0:1]
     info["ref_off"] = float(np.hypot(H[0, 0], H[0, 1]))
-    return lab[1:].astype(np.float32), info
+    # only the part of the label backed by the recording (+ EXTRAP_US of constant-velocity extrapolation) trains
+    mask = (tk[1:] <= arr[-1, 0] + EXTRAP_US).astype(np.float32)
+    info["valid"] = int(mask.sum())
+    return np.concatenate([lab[1:], mask[:, None]], 1).astype(np.float32), info
+
+
+def load_human(files, a, stats):
+    samples = []
+    for f in files:
+        rec = torch.load(f, weights_only=False)
+        lab = make_label(rec, a.t_rec, a.lag_m)
+        if lab is None:
+            stats["no_gt"] += 1; continue
+        label, info = lab
+        if info["off"] > a.max_off and info.get("ref_off", 0) > a.max_off:
+            stats["far"] += 1; continue
+        if info["valid"] < MIN_VALID:
+            stats["short"] = stats.get("short", 0) + 1; continue
+        stats["shifted"] += "shift_s" in info
+        samples.append({"features": rec["features"], "navigation": rec["navigation"], "label": torch.from_numpy(label),
+                        "pred": torch.from_numpy(rec["pred"]), "scene": rec["scene"], "info": info})
+    return samples
+
+
+def load_best(files, a, stats):
+    """Reward-filtered self-imitation: per scene, the rollout with the highest scene score among the clean and noisy
+    drives; its served plans are the labels (perturbed plans that led to a better drive teach the change, unperturbed
+    ones anchor). Scenes whose clean drive is best (or within --margin) give anchor samples (label = own plan)."""
+    scores = rollout_scores(a.runs)
+    by_session = {}
+    for f in files:
+        sess = os.path.basename(f).split("__")[1]
+        by_session.setdefault(sess, []).append(f)
+    per_scene = {}
+    for sess, fs in by_session.items():
+        if sess not in scores:
+            stats["unscored"] = stats.get("unscored", 0) + 1; continue
+        scene, score = scores[sess]
+        noisy = "_n0_" not in fs[0]
+        per_scene.setdefault(scene, []).append((score, noisy, sess, fs))
+    rng = random.Random(a.seed)
+    samples, gains = [], []
+    for scene, rolls in per_scene.items():
+        clean = [r for r in rolls if not r[1]]
+        if not clean:
+            stats["no_clean"] = stats.get("no_clean", 0) + 1; continue
+        c = clean[0][0]
+        best = max(rolls, key=lambda r: (r[0], not r[1]))
+        improved = best[1] and best[0] > c + a.margin
+        if improved:
+            chosen, kind = best, "improved"; gains.append(best[0] - c)
+        elif rng.random() < a.anchor:
+            chosen, kind = clean[0], "anchor"
+        else:
+            continue
+        stats[kind] = stats.get(kind, 0) + 1
+        for f in chosen[3]:
+            rec = torch.load(f, weights_only=False)
+            served = rec.get("served", rec["pred"])
+            label = np.concatenate([served, np.ones((len(served), 1), np.float32)], 1)
+            moved = float(np.abs(served - rec["pred"]).max())
+            samples.append({"features": rec["features"], "navigation": rec["navigation"], "label": torch.from_numpy(label),
+                            "pred": torch.from_numpy(rec["pred"]), "scene": rec["scene"],
+                            "info": {"off": moved, "kind": kind}})
+    stats["scenes_scored"] = len(per_scene)
+    stats["gain_mean"] = float(np.mean(gains)) if gains else 0.0
+    stats["perturbed_samples"] = sum(1 for x in samples if x["info"]["off"] > 1e-3)
+    return samples
 
 
 def cat(objs):
@@ -112,24 +236,20 @@ def main() -> None:
     ap.add_argument("--max_off", type=float, default=6.0)
     ap.add_argument("--val_frac", type=float, default=0.1)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--loss", choices=["flow", "served"], default="served")
+    ap.add_argument("--label", choices=["human", "best"], default="human",
+                    help="human: recovery label from the log; best: the served plan of the best-scoring rollout per scene")
+    ap.add_argument("--runs", default=os.environ.get("G2_RUNS", ""), help="glob of run dirs with results-summary.json (for --label best)")
+    ap.add_argument("--margin", type=float, default=0.0, help="best rollout must beat the scene's clean rollout by more")
+    ap.add_argument("--anchor", type=float, default=1.0, help="share of clean-best scenes kept as anchors (label = own plan)")
     a = ap.parse_args()
     random.seed(a.seed); torch.manual_seed(a.seed); np.random.seed(a.seed)
     dev = torch.device("cuda")
     t_start = time.time()
 
     files = sorted(f for d in a.data for f in glob.glob(os.path.join(d, "*.pt")))
-    samples, stats = [], {"files": len(files), "no_gt": 0, "far": 0, "shifted": 0}
-    for f in files:
-        rec = torch.load(f, weights_only=False)
-        lab = make_label(rec, a.t_rec, a.lag_m)
-        if lab is None:
-            stats["no_gt"] += 1; continue
-        label, info = lab
-        if info["off"] > a.max_off and info.get("ref_off", 0) > a.max_off:
-            stats["far"] += 1; continue
-        stats["shifted"] += "shift_s" in info
-        samples.append({"features": rec["features"], "navigation": rec["navigation"], "label": torch.from_numpy(label),
-                        "pred": torch.from_numpy(rec["pred"]), "scene": rec["scene"], "info": info})
+    stats = {"files": len(files), "no_gt": 0, "far": 0, "shifted": 0}
+    samples = load_human(files, a, stats) if a.label == "human" else load_best(files, a, stats)
     scenes = sorted({s["scene"] for s in samples})
     random.Random(a.seed).shuffle(scenes)
     val_sc = set(scenes[: max(1, int(len(scenes) * a.val_frac))])
@@ -163,20 +283,36 @@ def main() -> None:
         with torch.no_grad():
             for f, nv, lab, pred in batches(rows, 64, False):
                 out = policy.forward(f, nv).ego_trajectory_se2.float()
-                tot += (out[..., :2] - lab[..., :2]).norm(dim=-1).mean(-1).sum().item()
-                base += (pred[..., :2] - lab[..., :2]).norm(dim=-1).mean(-1).sum().item()
+                m = lab[..., 3]
+                tot += ((out[..., :2] - lab[..., :2]).norm(dim=-1) * m).sum(-1).div(m.sum(-1)).sum().item()
+                base += ((pred[..., :2] - lab[..., :2]).norm(dim=-1) * m).sum(-1).div(m.sum(-1)).sum().item()
                 n += len(lab)
         return tot / max(n, 1), base / max(n, 1)
 
-    log = {"args": vars(a), "stats": stats, "epochs": []}
+    # check: the differentiable served plan reproduces the driver's sampler (and the recorded plan)
+    policy.eval()
+    f, nv, lab, pred = next(batches(val or train, 16, False))
+    with torch.no_grad():
+        sampled = policy.forward(f, nv).ego_trajectory_se2.float()
+    with torch.enable_grad():
+        unrolled = served_plan(policy.planning_decoder, policy.forward(f, nv).trajectory).detach()
+    check = {"unrolled_vs_sampled_m": float((unrolled[..., :2] - sampled[..., :2]).norm(dim=-1).max()),
+             "sampled_vs_recorded_m": float((sampled[..., :2] - pred[..., :2]).norm(dim=-1).max())}
+    print("check", json.dumps(check), flush=True)
+    log = {"args": vars(a), "stats": stats, "check": check, "epochs": []}
     ade, ade_w1 = evaluate(val)
     print(f"epoch 0 val ADE {ade:.3f} m (W1 as recorded {ade_w1:.3f})", flush=True)
     log["epochs"].append({"epoch": 0, "val_ade": ade, "w1_recorded_ade": ade_w1})
     for ep in range(1, a.epochs + 1):
-        policy.train(); tl = []; t0 = time.time()
+        # backbone stays in eval (frozen BatchNorm statistics); the flow loss trains the decoder with its dropout as
+        # released, the served loss runs it in eval as the driver does
+        policy.eval(); tl = []; t0 = time.time()
+        if a.loss == "flow":
+            policy.planning_decoder.train()
         for f, nv, lab, _ in batches(train, a.bs, True):
             pr = policy.forward(f, nv)
-            loss = policy.planning_decoder.compute_loss(pr.trajectory, lab)["loss_trajectory"]
+            fn = masked_flow_loss if a.loss == "flow" else served_loss
+            loss = fn(policy.planning_decoder, pr.trajectory, lab)
             opt.zero_grad(set_to_none=True); loss.backward()
             torch.nn.utils.clip_grad_norm_(params, 1.0); opt.step(); tl.append(loss.item())
         ade, _ = evaluate(val)

@@ -3,9 +3,9 @@
 #SBATCH -p short,burst
 #SBATCH -J aj_dagt
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=l40s|l40|h100
-#SBATCH -c 12
-#SBATCH --mem=120G
+#SBATCH --constraint=l40s|l40|h100|A6000|R6000
+#SBATCH -c 8
+#SBATCH --mem=64G
 #SBATCH -t 02:00:00
 #SBATCH -o /insomnia001/depts/edu/users/au2327/alpasim-jepa/logs/dagger_train_%j.out
 # Fine-tune W1's planning decoder on DAgger samples (src/g2_dagger/train.py). DATA="dir ...", OUT=<dir>, ARGS=extra flags.

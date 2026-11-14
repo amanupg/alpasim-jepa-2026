@@ -58,6 +58,8 @@ if [ -n "${LOCAL_PART:-}" ]; then
   fi
   mkdir -p $RUN/heldout
   ls $L/navtest/assets | grep -vxFf <(ls $B/data/nuplan_track/navtest/assets) > $RUN/heldout/ids.txt || true
+  # EXCLUDE_LOGS=<file of log names>: drop scenes of those logs (DAgger training collection stays log-disjoint from the gate set)
+  if [ -n "${EXCLUDE_LOGS:-}" ]; then grep -vFf $EXCLUDE_LOGS $RUN/heldout/ids.txt > $RUN/heldout/ids.f || true; mv $RUN/heldout/ids.f $RUN/heldout/ids.txt; fi
   head -${NSCENES} $RUN/heldout/ids.txt | sed "s/.*/'&'/" | paste -sd, - > $RUN/heldout/scene_ids.txt
   echo "part $LOCAL_PART: $(wc -l < $RUN/heldout/ids.txt) fresh scenes, driving $(head -${NSCENES} $RUN/heldout/ids.txt | wc -l)"
   NUPLAN_ROOT=$L; SCENES_FROM=$RUN/heldout

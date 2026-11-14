@@ -91,21 +91,22 @@ def install() -> None:
     def _plan(self, policy, session, session_uuid):
         _tls.inputs = None
         poses = original(self, policy, session, session_uuid)
-        try:
-            _save(session, session_uuid, poses)
-        except Exception:  # recording must never change driving
-            LOG.exception("dagger save failed for %s", session_uuid)
+        served = poses
         if NOISE > 0 and poses.shape == (64, 3):
             key = f"{SEED}:{session_uuid}:{session.num_plans}"
             rng = np.random.default_rng(int(hashlib.md5(key.encode()).hexdigest()[:8], 16))
             if rng.random() < NOISE:
-                return perturb(poses, rng.uniform(-LAT, LAT), rng.uniform(1 - SPD, 1 + SPD))
-        return poses
+                served = perturb(poses, rng.uniform(-LAT, LAT), rng.uniform(1 - SPD, 1 + SPD))
+        try:
+            _save(session, session_uuid, poses, served)
+        except Exception:  # recording must never change driving
+            LOG.exception("dagger save failed for %s", session_uuid)
+        return served
 
     driver_service.GarageDriver._plan = _plan
 
 
-def _save(session, session_uuid: str, poses: np.ndarray) -> None:
+def _save(session, session_uuid: str, poses: np.ndarray, served: np.ndarray) -> None:
     inputs = getattr(_tls, "inputs", None)
     gt = getattr(session, "_g2_gt", None)
     if not OUT or inputs is None or gt is None:
@@ -114,6 +115,7 @@ def _save(session, session_uuid: str, poses: np.ndarray) -> None:
     step_us, arr = gt
     plan = int(session.num_plans) - 1
     rec = {"features": features, "navigation": navigation, "pred": poses.astype(np.float32),
+           "served": np.asarray(served, dtype=np.float32),
            "gt_step_us": step_us, "gt": arr, "speed": float(session.speed_mps), "plan": plan,
            "scene": str(session.scene_id), "session": session_uuid}
     name = re.sub(r"[^A-Za-z0-9._-]", "_", f"{session.scene_id}__{session_uuid}__{plan:03d}")
