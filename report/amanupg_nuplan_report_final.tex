@@ -155,10 +155,26 @@ human path and the model's own plan elsewhere. We also tested reward-filtered se
 best-scoring noisy rollout per scene): noise improved only 1 of 79 scenes and fixed none of W1's failures, so it had
 no signal to train on.
 
-\textbf{Results} (paired vs W1, 100 fresh scenes per part). D1: $-0.059$, $+0.021$, $-0.059$, $-0.097$,
-$-0.044$ on five parts (overfit after one epoch on 79 scenes). D1o: $-0.017$, $-0.002$, $+0.002$ on three parts.
-\todo{D1o remaining parts, D2o and D2h on 691 scenes; NuRec if any passes.} Imitating human recovery labels moved
-the planner away from the released behaviour faster than it fixed failures.
+\textbf{Results} (paired vs W1, 691 fresh scenes from logs disjoint from training).
+\begin{table}[h]
+\centering\footnotesize\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccc}
+\toprule
+Variant (labels, data, epochs) & mean diff [90\%] & W / L & new / fixed zeros & at-fault \\
+\midrule
+D1: human everywhere, 79 scenes, 4 & $-0.036$ [$-0.053$, $-0.019$] & 68 / 113 & 20 / 11 & 4 $\rightarrow$ 9 \\
+D1o: human beyond 1\,m, 79 scenes, 4 & $-0.004$ [$-0.008$, $-0.000$] & 49 / 38 & 2 / 0 & 4 $\rightarrow$ 5 \\
+D2h: human beyond 0.5\,m, 234 scenes, 2 & $-0.005$ [$-0.011$, $-0.000$] & 50 / 39 & 3 / 0 & 4 $\rightarrow$ 5 \\
+D2o: human beyond 1\,m, 234 scenes, 2 & $+0.003$ [$-0.002$, $+0.007$] & 64 / 22 & 1 / 1 & 4 $\rightarrow$ 4 \\
+\bottomrule
+\end{tabular}
+\caption{DAgger fine-tunes of W1's decoder. W1 reruns are bit-identical on one GPU type, so wins and losses
+are effects of the weights. No variant has an interval above zero.}
+\label{tab:dagger}
+\end{table}
+Human recovery labels everywhere (D1) moved the planner away from the released behaviour faster than they fixed
+failures. Restricting them to states well off the human path (D2o) removed the harm and gave many small wins, but
+the gain is below what 691 scenes can resolve (interval half-width about 0.004). \todo{D2o on NuRec (440 scenes).}
 
 \section{Limitations and safety}
 The entry inherits W1's behaviour and failure modes. Locally its remaining zero scores are mostly off-road exits from
