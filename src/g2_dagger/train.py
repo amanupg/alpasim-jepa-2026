@@ -147,6 +147,9 @@ def load_human(files, a, stats):
         if info["valid"] < MIN_VALID:
             stats["short"] = stats.get("short", 0) + 1; continue
         stats["shifted"] += "shift_s" in info
+        if info["off"] < a.anchor_below:
+            label = np.concatenate([rec["pred"], np.ones((len(rec["pred"]), 1), np.float32)], 1).astype(np.float32)
+            stats["anchored"] = stats.get("anchored", 0) + 1
         samples.append({"features": rec["features"], "navigation": rec["navigation"], "label": torch.from_numpy(label),
                         "pred": torch.from_numpy(rec["pred"]), "scene": rec["scene"], "info": info})
     return samples
@@ -241,6 +244,8 @@ def main() -> None:
                     help="human: recovery label from the log; best: the served plan of the best-scoring rollout per scene")
     ap.add_argument("--runs", default=os.environ.get("G2_RUNS", ""), help="glob of run dirs with results-summary.json (for --label best)")
     ap.add_argument("--margin", type=float, default=0.0, help="best rollout must beat the scene's clean rollout by more")
+    ap.add_argument("--anchor_below", type=float, default=0.0,
+                    help="human labels: states within this many metres of the human use the model's own plan as label")
     ap.add_argument("--anchor", type=float, default=1.0, help="share of clean-best scenes kept as anchors (label = own plan)")
     a = ap.parse_args()
     random.seed(a.seed); torch.manual_seed(a.seed); np.random.seed(a.seed)
