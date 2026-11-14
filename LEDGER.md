@@ -1160,3 +1160,14 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - **Round 2 queued (11-13 late):** more data (6 collection dirs it1_n0_c0/c1/c2, n1_c0/c1, n2_c0, ~4.7k files) and 2 epochs, lr 2e-5, served loss. `D2o` anchor_below 1.0 (train 13905555), `D2h` anchor_below 0.5 (13905556); eval on the 7 fresh parts 13905557-63, paired with `w1fresh<part>_0`.
 - 11-14 ~09:00-13:30 UTC: Insomnia unreachable from the Mac (connect timeout, VPN down); jobs keep running, results read when the link returns. Gate and default unchanged: plain W1 as v10 unless a candidate passes fresh nuPlan (691, CI > 0, no new at-fault) and NuRec (440).
 - **Board 11-14 14:23 UTC (251 entries, scratchpad lb_nuplan_1114b.txt), best per team:** CQUPT 2359 (0.968, 1.46 km), SymPhi 2359 (0.969), nuVAIL 2353 (0.988, 3.79 km), Lucifer 2336, host W1 093 2317 (0.944, 0.981), 메타몽 2303; ours v9 1994. Plain W1 would land about 5th among eligible teams.
+
+## 2026-11-14 (afternoon) DAgger final read on fresh nuPlan: nothing passes
+- Link back 16:39 UTC. D2 training (4,236 samples from 234 scenes, 2 epochs): val ADE to labels got slightly worse than W1's own plans (D2o 0.571 -> 0.598 m, D2h 0.836 -> 0.868 m); most samples are anchored to W1's own plan (D2o 2,952 of 4,236).
+- **Pooled, 691 fresh scenes, paired vs W1 (`scratchpad/pool_dagger.py`, copied to `tmp/`):**
+  - D1 (human everywhere): **-0.0358 [-0.053, -0.019]**, W68/L113, new zeros 20, fixed 11, at-fault 4 -> 9, off-road 25 -> 30. Fails.
+  - D1o (human beyond 1 m, 4 epochs, 79 scenes): -0.0036 [-0.0076, -0.0003], W49/L38, new zeros 2, at-fault 4 -> 5. Fails.
+  - D2h (human beyond 0.5 m, 2 epochs, 234 scenes): -0.0053 [-0.011, -0.000], W50/L39, new zeros 3, at-fault 4 -> 5. Fails.
+  - **D2o (human beyond 1 m, 2 epochs, 234 scenes): +0.0025 [-0.0015, +0.0068], W64/L22, new zeros 1 (`efe0cf18`, corridor exit, the same scene the controller-gain variants broke), fixed 1; off-road 25 -> 25, corridor 3 -> 3, at-fault 4 -> 4.** Per part: -0.010, -0.001, +0.005, +0.001, +0.009, +0.002, +0.012. CI includes 0: **does not pass the nuPlan gate.**
+- Validity: all 7 parts complete (691 scenes, none dropped), same scene lists and GPU class as the `w1fresh` baselines; W1 reruns on one GPU type are bit-identical, so the W/L counts are effects of the weights, not noise. Power: at 691 scenes the 90% interval half-width is ~0.004, so effects below ~0.004 cannot be resolved; D2o's +0.0025 is in that range.
+- D2o on all 12 NuRec chunks for the record and the report (13907530-41, TAG d2o; base = `w1sh` runs). Not a swap candidate unless NuRec shows a large drop in at-fault incidents, and even then Aman decides.
+- **Recommendation unchanged: v10 = plain W1 (`local/w1:1`).**
