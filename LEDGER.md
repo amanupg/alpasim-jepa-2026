@@ -1187,3 +1187,8 @@ Jobs 13908735-41 all COMPLETED; driver.log shows the leash active in all 21 runs
 | L05 (0.5 m) | -0.0016 [-0.0059, +0.0027] | 22/29 | 2 / 1 | 25 -> 25 | 4 -> 4 |
 | L10 (1.0 m) | -0.0000 [-0.0001, +0.0001] | 19/24 | 0 / 0 | 25 -> 25 | 4 -> 4 |
 Verdict: none passes. Tight leash hurts, loose leash barely changes anything; off-road exits not reduced. This rejects our reading of CQUPT's name on W1 in nuPlan, not their method. v10 stays plain W1.
+
+## 2026-11-15 v10 = plain W1 (Aman asked me to run the steps; he entered the CLI token himself via the hidden prompt)
+- `limits`: 1 official left this month (2 used), nuplan-warmup 1 left; terms accepted (official-2026-08, captain); `ecr-login` OK; `v10` absent from the registry.
+- **`teams/amanupg:v10` pushed, digest sha256:db5833d60444c06e74381d111f71f96c84260676de344fba86d53590927ad388** = `local/w1:1` (checked image, line 927).
+- **v10 warmup submitted:** track `nuplan-warmup`, submission_id `77c74265-bfdb-461f-98f5-bf2ded67ffb0`, QUEUED 1/1. Official submit follows if it succeeds.
