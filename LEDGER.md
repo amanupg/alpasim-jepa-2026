@@ -1178,3 +1178,12 @@ Sources: the challenge Space (`nvidia/AlpasimE2EClosedLoopChallenge2026` @ 04a52
 - Reading of the name (guess, not verified): a geometric add-on that keeps the plan's path near the route ("leash", "pathonly" = path changed, speed kept), only outside sharp turns ("turngate30"). Their lower dist to GT (0.512 vs W1 0.590) and higher km per incident fit pulling the car toward the recorded path.
 - **Our version `src/g2_leash`:** reference = cubic Hermite from the ego (current heading) onto the served route (route starts ~42 m ahead, 19 points / 36 m of recorded path, checked on W1 shadow logs s011), then the route; each planned pose keeps its arc length and its lateral offset from the reference is clamped to +-M; skipped when the reference turns >= 30 deg within the plan's reach, below 1 m/s, or without a route. Unit check (cluster): straight route, plan drifting to 2 m -> clamped to 0.5 m, longitudinal unchanged; plan within the leash returned unchanged; 90 deg route gated; stopped plan unchanged.
 - Launched fresh nuPlan 7 parts x {M 0.5, 1.0, 0.3}, paired with `w1fresh` baselines: 13908735-41 (TAG lsfresh<part>_). NuRec cannot run before the deadline (R6000 blocked), so any result is nuPlan-only, the kind of evidence that was wrong 0/3 times before; Aman decides.
+
+### 2026-11-15 07:44 UTC: route leash result (negative)
+Jobs 13908735-41 all COMPLETED; driver.log shows the leash active in all 21 runs (7 parts x M=0.3/0.5/1.0, gate 30 deg, vmin 1.0), 0 "leash failed". Paired vs W1 fresh on the same 691 scenes (bootstrap 90% CI):
+| Variant | diff | W/L | new zeros / fixed | off-road | at-fault |
+|---|---|---|---|---|---|
+| L03 (0.3 m) | -0.0072 [-0.0132, -0.0014] | 25/32 | 6 / 1 | 25 -> 29 | 4 -> 5 |
+| L05 (0.5 m) | -0.0016 [-0.0059, +0.0027] | 22/29 | 2 / 1 | 25 -> 25 | 4 -> 4 |
+| L10 (1.0 m) | -0.0000 [-0.0001, +0.0001] | 19/24 | 0 / 0 | 25 -> 25 | 4 -> 4 |
+Verdict: none passes. Tight leash hurts, loose leash barely changes anything; off-road exits not reduced. This rejects our reading of CQUPT's name on W1 in nuPlan, not their method. v10 stays plain W1.
