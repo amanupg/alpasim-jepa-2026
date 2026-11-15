@@ -1192,3 +1192,5 @@ Verdict: none passes. Tight leash hurts, loose leash barely changes anything; of
 - `limits`: 1 official left this month (2 used), nuplan-warmup 1 left; terms accepted (official-2026-08, captain); `ecr-login` OK; `v10` absent from the registry.
 - **`teams/amanupg:v10` pushed, digest sha256:db5833d60444c06e74381d111f71f96c84260676de344fba86d53590927ad388** = `local/w1:1` (checked image, line 927).
 - **v10 warmup submitted:** track `nuplan-warmup`, submission_id `77c74265-bfdb-461f-98f5-bf2ded67ffb0`, QUEUED 1/1. Official submit follows if it succeeds.
+- **v10 warmup SUCCEEDED (77c74265, 08:06-08:18 UTC):** resolved digest sha256:db5833d6… (the checked image), 32/32 rollouts valid and scored, wall time 269.6 s of 2,700 s (passed, margin 2,430 s).
+- **v10 OFFICIAL nuPlan submission (2026-11-15 ~08:20 UTC, run by me on Aman's instruction "run all the steps", warmup gate passed): submission_id `2f9b4489-37d9-435b-9832-71f45421c6ea`**, image `teams/amanupg:v10` (digest db5833d6…), no controller gains. QUEUED 1/1. Monthly count 3 of 3 (none left).
