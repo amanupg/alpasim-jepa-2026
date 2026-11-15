@@ -37,14 +37,15 @@
 Our final nuPlan entry is the released py123d\_garage v0.2.0 latent TransFuser (waypoints head, post-trained,
 seed 1), run unmodified. We submit it because nothing we built beat it under a test we trust. This report is about
 that test. Over the challenge we tried a learned critic, two start-from-rest rules, ensembles, speed caps,
-controller gains, nuPlan fine-tuning with weight averaging, and on-policy distillation (DAgger) through the
-planner's exact inference path. Three entries that improved local nuPlan scores with confidence intervals above zero
+controller gains, a lateral leash to the route, nuPlan fine-tuning with weight averaging, and on-policy
+distillation (DAgger) through the planner's exact inference path. Three entries that improved local nuPlan scores with confidence intervals above zero
 (+0.012 to +0.128 mean scene score, on up to 754 paired scenes including held-out ones) all lost on the board, by
 225 to 288 PCS for the two rule add-ons. A second local benchmark, NuRec reconstructions with longer scenes,
 predicted the board's direction in 3 of 3 cases where local nuPlan predicted 0 of 3. We describe the diagnosis
 behind the rules (the policy plans ``wait, then go'' at every replan from rest), why it did not transfer, a
 cheap board-side control (other teams' unmodified baselines), and a sampler-exact DAgger objective.
-\todo{official v10 result: PCS, mean, km per at-fault incident.}
+The final entry (v10) scored PCS 2320 [2155, 2485] on the board, mean scene score 0.940 and 0.84\,km per
+at-fault incident, against 2332 for the organisers' run of the same checkpoint.
 \end{abstract}
 
 \section{Final policy}
@@ -84,8 +85,7 @@ revision \texttt{56edbe90}, released under Apache-2.0 at that revision (the repo
 CC BY-NC-SA 4.0 on 2026-10-29). KE:SAI trained it on public data: Physical AI AV, NuRec and nuPlan train/val.
 \textbf{Code:} py123d\_garage v0.2.2 (Apache-2.0) and \texttt{alpasim\_grpc} 0.54.0 from NVlabs/alpasim
 \texttt{e2e\_challenge} (Apache-2.0). \textbf{Training:} none for the final entry. \textbf{Runtime:} the official
-v9 run of the same model plus a rule add-on took 1,235\,s of the 3,000\,s budget for 1,000 rollouts.
-\todo{v10 wall time and GPU memory.} The image is offline with all weights included.
+v10 run took 1,195\,s of the 3,000\,s budget for 1,000 rollouts, all valid. The image is offline with all weights included.
 
 Our experiments additionally used the public nuPlan navtest assets (\texttt{OpenDriveLab/AlpasimChallenge2026\_nuplan\_track})
 and NuRec scenes for local closed-loop evaluation, and nuPlan logs for one fine-tune. No private-set data,
@@ -132,7 +132,9 @@ losses.
 W25/L57 (147 scenes). Speed cap at 0.9 of the planned speed: $-0.013$, W2/L89 (500). Turn-only cap (0.8 above
 15$^\circ$): $+0.000$ on both benchmarks; a binding cap (0.6 above 10$^\circ$) cut NuRec at-fault incidents 61 to
 52 but cost progress ($-0.008$ nuPlan, $-0.004$ NuRec). Controller heading weight 2.0: $-0.005$, 2 new zero
-scenes; steering-rate weight 2.5: $-0.003$, 1 new zero scene. nuPlan-only fine-tune of v0.2.0 (tuning scenes): $-0.012$, and
+scenes; steering-rate weight 2.5: $-0.003$, 1 new zero scene. Lateral leash (clamp each planned point's offset from a
+smooth curve onto the route, keep the model's speed, skip turns above 30$^\circ$; 691 scenes): 0.3\,m $-0.007$
+[$-0.013$, $-0.001$] with off-road exits 25 to 29, 0.5\,m $-0.002$ [$-0.006$, $+0.003$], 1.0\,m no change. nuPlan-only fine-tune of v0.2.0 (tuning scenes): $-0.012$, and
 weight averaging with the base: $\pm0.001$. Replan rate is a no-op on nuPlan (control step fixed at 0.5\,s). A local
 PCS proxy built with the organisers' IRT code ranked v8 above its base even with the host's 12 checkpoints in the
 population, the opposite of the board.
@@ -174,7 +176,7 @@ are effects of the weights. No variant has an interval above zero.}
 \end{table}
 Human recovery labels everywhere (D1) moved the planner away from the released behaviour faster than they fixed
 failures. Restricting them to states well off the human path (D2o) removed the harm and gave many small wins, but
-the gain is below what 691 scenes can resolve (interval half-width about 0.004). \todo{D2o on NuRec (440 scenes).}
+the gain is below what 691 scenes can resolve (interval half-width about 0.004). We could not run D2o on NuRec before the deadline (no free GPUs of the type NuRec needs), so it was not submitted.
 
 \section{Limitations and safety}
 The entry inherits W1's behaviour and failure modes. Locally its remaining zero scores are mostly off-road exits from
