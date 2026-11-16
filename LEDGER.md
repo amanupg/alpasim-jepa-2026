@@ -1202,3 +1202,9 @@ Verdict: none passes. Tight leash hurts, loose leash barely changes anything; of
 - Archived to the Mac first (`cluster_archive/`, gitignored): per-scene aggregates of all 616 runs (2,461 files, 217.9 MB), `dagger_models/D2o`, `weights_py123d_v0.2.0/ltf-base-waypoints-68M` (W1, Apache at HF 56edbe90). Counts, bytes and sha256 all matched the cluster. Cluster-only code (`cluster/audit_cmp.sbatch`, `src/tools/{compare_runs,summarize_run}.py`) and pool scripts (`analysis/pool_scripts/`) committed.
 - `/insomnia001/depts/edu/users/au2327/alpasim-jepa` (1.4 TB) removed by Slurm job 13924597 (18 min). Fileset 8.1 TB -> 6.7 TB used. Assessment: notes/storage_assessment_2026-11-16.md.
 - Still to do by Aman: revoke the HF token that was stored in the deleted `.cache/hf/token`. `~/.cache/nre` (1.4 GB, NuRec cache) in home not deleted.
+
+## 2026-11-16 22:57 UTC: technical report uploaded and ACCEPTED
+- Aman reviewed the PDF, refreshed the CLI token himself (hidden prompt) and said to submit.
+- `report upload report/amanupg_nuplan_report_final.pdf` -> report_id a135197d-95b7-4066-8b9f-32a6f24c63eb, status ACCEPTED,
+  accepted_at 2026-11-16T22:57:16Z, sha256 511e2d83…4ebdc2, 45,330 bytes, team amanupg. `report status` shows it as latest.
+- nuPlan campaign closed: v10 PCS 2320 on the board, report accepted.
