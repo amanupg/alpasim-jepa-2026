@@ -6,3 +6,4 @@ runs/
 .venv/
 ext/
 container/assets/
+cluster_archive/
