@@ -1208,3 +1208,8 @@ Verdict: none passes. Tight leash hurts, loose leash barely changes anything; of
 - `report upload report/amanupg_nuplan_report_final.pdf` -> report_id a135197d-95b7-4066-8b9f-32a6f24c63eb, status ACCEPTED,
   accepted_at 2026-11-16T22:57:16Z, sha256 511e2d83…4ebdc2, 45,330 bytes, team amanupg. `report status` shows it as latest.
 - nuPlan campaign closed: v10 PCS 2320 on the board, report accepted.
+
+## 2026-11-21 Final board read; resume source round 2
+- Public leaderboard read 2026-11-21 ~23:06 UTC (291 records: 286 submissions + 5 organiser 3-run-mean final runs of 11-18; 63 teams). v10 PCS 2450 [2303.4, 2596.9], rank field 37 [6-60]; v9 2091, v8 2069, v0.3 1381, v6 1218. By best-entry PCS: 18th of 63 teams (Aman's official final rank), 17th of 57 non-host. Final runs went to SymPhi, CQUPT, nuVAIL, Lucifer, 메타몽; none for us.
+- Cluster GPU total for alpasim-jepa: 541.2 GPU-h (sacct incl. requeues, 11-16 15:41 EST, via the PAI agent).
+- `notes/resume_source_2026-11-21.md` written (round 2 of the 11-13 file). Track closed.

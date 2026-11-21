@@ -7,7 +7,12 @@
 read-only from here. Everything borrowed is listed in [BORROWED.md](BORROWED.md).
 Evidence, results and decisions live in [LEDGER.md](LEDGER.md).
 
-## Status (2026-10-14)
+## Final status (track CLOSED, 2026-11-16)
+- Final entry **v10** = released py123d v0.2.0 waypoints seed 1 (W1), unmodified. PCS 2320 on 2026-11-15; 2450 on the final board (read 2026-11-21). Official final rank: **18th on nuPlan**.
+- Technical report accepted 2026-11-16 (`report/amanupg_nuplan_report_final.pdf`).
+- Cluster folder deleted 2026-11-16; results and weights archived locally (`cluster_archive/`, gitignored). Full record: [notes/resume_source_2026-11-21.md](notes/resume_source_2026-11-21.md), [LEDGER.md](LEDGER.md).
+
+## Status (2026-10-14) (historical)
 - **Local score cannot rank model families.** NAVSIM-tuned models (WA-JEPA, LTF, GTRS) score high locally but low
   officially, so only same-model comparisons are trusted locally. The simulator is deterministic (reruns identical).
 - **Base:** the public py123d checkpoint (kesai-labs, Apache-2.0): 0.848 official scene score (another team's entry).
